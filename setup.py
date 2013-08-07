@@ -11,7 +11,7 @@ data = dict(
     description = 'motion-monitor is used to monitor and handle events relating to the motion security camera software',
     author = 'David Whyte',
     author_email = 'david@thewhytehouse.org',
-    packages =      ['motion-monitor'],
+    packages =      ['monitor'],
     scripts = ['motion-monitor'],
     data_files = [('/etc/init', ['motion-monitor.conf'])],
     )
