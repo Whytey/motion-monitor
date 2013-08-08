@@ -9,6 +9,7 @@ import logging
 import logging.handlers
 import monitor.socketlistener
 import monitor.simple_logger
+import monitor.zabbixwriter
 import os
 
 class MainApp():
@@ -22,8 +23,10 @@ class MainApp():
         self.__logger = self.__setup_logger()
         self.__socket_listener = monitor.socketlistener.SocketListener()
         self.__repeater = monitor.simple_logger.SimpleLogger()
+        self.__zabbixwriter = monitor.zabbixwriter.ZabbixWriter()
         
         self.__socket_listener.connect(self.__socket_listener.MOTION_EVENT, self.__repeater.log_event)
+        self.__socket_listener.connect(self.__socket_listener.MOTION_EVENT, self.__zabbixwriter.handle_msg)
         
     def __setup_logger(self):
         log_filename = 'motion-monitor.log'
