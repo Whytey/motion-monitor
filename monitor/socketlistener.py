@@ -12,9 +12,11 @@ import socket
 class SocketListener(GObject.GObject):
     
     MOTION_EVENT = "motion_event"
+    MANAGEMENT_EVENT = "management_event"
     
     __gsignals__ = {
-        MOTION_EVENT: (GObject.SIGNAL_RUN_LAST, None, (GObject.TYPE_PYOBJECT,))
+        MOTION_EVENT: (GObject.SIGNAL_RUN_LAST, None, (GObject.TYPE_PYOBJECT,)),
+        MANAGEMENT_EVENT: (GObject.SIGNAL_RUN_LAST, None, (GObject.TYPE_PYOBJECT,))
     }
         
     def __init__(self):
@@ -23,40 +25,54 @@ class SocketListener(GObject.GObject):
         self.__logger = logging.getLogger(__name__)
         
         # Initialise server and start listening.
-        self.__socket = socket.socket()
+        self.__socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.__socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.__socket.bind(('127.0.0.1', 8888))
-        self.__socket.listen(1)
         self.__logger.info("Listening...")
-        GObject.io_add_watch(self.__socket.fileno(), GObject.IO_IN, self.__handle_msg)
+        
+        # When there is data available, call the callback.
+        GObject.io_add_watch(self.__socket.fileno(), GObject.IO_IN, 
+                             self.__handle_socket_msg)
         
     def __validate_msg(self, msg):
         assert type(msg) == dict, "Message should be a dictionary: %s" % msg
         assert "type" in msg, "Message does not specify what type it is: %s" % msg
-        assert msg["type"] in ["area_detected",
+        
+        self.__logger.debug("Got a message type of '%s'" % msg["type"])
+
+        if msg["type"] in ["area_detected",
                                "camera_lost",
                                "event_end",
                                "event_start",
                                "motion_detected",
                                "movie_end",
                                "movie_start",
-                               "picture_save"], "Unknown message type: %s" % msg["type"]
+                               "picture_save"]:
+            return self.MOTION_EVENT
         
-        self.__logger.debug("Got a message type of '%s'" % msg["type"])
+        if msg["type"] == "sweep":
+            return self.MANAGEMENT_EVENT
+        
+        assert False, "Unknown message type: %s" % msg["type"]
 
         
-    def __handle_msg(self, fd, condition):
+    def __handle_socket_msg(self, fd, condition):
+        self.__logger.debug("Need to handle socket IO.")
         # If it is the correct socket, read data from it.
         if fd == self.__socket.fileno():
             try:
-                conn, addr = self.__socket.accept()
-                line = conn.recv(65536)
+                #conn, addr = self.__socket.accept()
+                line = self.__socket.recv(1024)
                 self.__logger.debug("Rxd raw data: %s" % line)
                 msg = json.loads(line)
-                self.__validate_msg(msg)
+                msg_type = self.__validate_msg(msg)
+                if msg_type == self.MANAGEMENT_EVENT:
+                    self.emit(self.MANAGEMENT_EVENT, msg)
+                if msg_type == self.MOTION_EVENT:
+                    self.emit(self.MOTION_EVENT, msg)
+                    
             except Exception, e:
                 self.__logger.exception(e)
                 return True
             
-            self.emit(self.MOTION_EVENT, msg)
             return True

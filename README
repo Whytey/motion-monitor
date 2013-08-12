@@ -1,3 +1,15 @@
-A Python script that is used for cleaning up files captured using the motion software package (http://www.lavrsen.dk/foswiki/bin/view/Motion/WebHome).
+A Python program that is used to monitor and manage the 'motion' software 
+package (http://www.lavrsen.dk/foswiki/bin/view/Motion/WebHome).
 
-Currently a very nasty hack!
+motion-monitor receives notifications from motion about events that are 
+occurring and then performs relevant actions on those events.
+
+Currently supported actions:
+ - Logging to a file.
+ - Providing the status to the Zabbix monitoring service.
+ 
+Functionality to come:
+ - Add a timer to perform cleanup functions.
+ - Provide a util script for performing cleanup functions.
+ - Support 'metrics' of events that have occured.
+ - Provide a JSON interface for retrieving motion-monitor data.

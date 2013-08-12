@@ -7,8 +7,9 @@ Created on 24/07/2013
 from gi.repository import GObject
 import logging
 import logging.handlers
+import monitor.cameramonitor
+import monitor.filemanager
 import monitor.socketlistener
-import monitor.simple_logger
 import monitor.zabbixwriter
 import os
 
@@ -16,17 +17,33 @@ class MainApp():
     
     def __init__(self):
 
-        # We are in production if the setup.py script is not in the same 
-        # directory we are running from
-        self.__in_production = not os.path.exists(os.path.join(os.getcwd(), 'setup.py'))
+        # We are in development if the setup.py script is in the same directory 
+        # we are running from.
+        self.__in_development = os.path.exists(os.path.join(os.getcwd(), 'setup.py'))
         
         self.__logger = self.__setup_logger()
+        
         self.__socket_listener = monitor.socketlistener.SocketListener()
-        self.__repeater = monitor.simple_logger.SimpleLogger()
+        self.__camera_monitor = monitor.cameramonitor.CameraMonitor()
         self.__zabbixwriter = monitor.zabbixwriter.ZabbixWriter()
         
-        self.__socket_listener.connect(self.__socket_listener.MOTION_EVENT, self.__repeater.log_event)
-        self.__socket_listener.connect(self.__socket_listener.MOTION_EVENT, self.__zabbixwriter.handle_msg)
+        # SocketListener MOTION_EVENTs should be handled by the CameraMonitor.
+        self.__socket_listener.connect(self.__socket_listener.MOTION_EVENT, 
+                                       self.__camera_monitor.handle_motion_event)
+        
+        # CameraMonitor ACTIVITY_EVENTs are handled by the ZabbixWriter.
+        self.__camera_monitor.connect(self.__camera_monitor.ACTIVITY_EVENT, 
+                                      self.__zabbixwriter.handle_camera_activity)
+        
+        
+        # This is the sweeper.
+        self.__sweeper = monitor.filemanager.Sweeper()
+        # SocketListener MANAGEMENT_EVENTs should be handled by the Sweeper.
+        self.__socket_listener.connect(self.__socket_listener.MANAGEMENT_EVENT, 
+                                       self.__sweeper.sweep)
+
+        
+        
         
     def __setup_logger(self):
         log_filename = 'motion-monitor.log'
@@ -36,12 +53,13 @@ class MainApp():
 
         # Determine the path to the log file.
         log_path = os.path.join(os.sep, 'var', 'log', 'motion-monitor')
-        print os.getcwd()
-        if os.path.exists(os.path.join(os.getcwd(), 'setup.py')):
+        if self.__in_development:
             # We are working in a development environment
             log_path = os.path.join(os.sep, 'tmp', 'motion-monitor')
+            
         if not os.path.exists(log_path):
             os.makedirs(log_path)
+        
         logger_path = os.path.join(log_path, log_filename)
         
         # Add the log message handler to the logger (10MBs in size).
