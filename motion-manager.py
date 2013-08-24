@@ -272,7 +272,7 @@ def main():
 
     stats.start_sweeping()
 
-    test = True
+    test = False
     conf = TimelapseConfig()
 
     for root, dirs, files in os.walk(conf.target_dir, topdown=False):

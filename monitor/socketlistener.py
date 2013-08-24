@@ -18,6 +18,9 @@ class SocketListener(GObject.GObject):
         MOTION_EVENT: (GObject.SIGNAL_RUN_LAST, None, (GObject.TYPE_PYOBJECT,)),
         MANAGEMENT_EVENT: (GObject.SIGNAL_RUN_LAST, None, (GObject.TYPE_PYOBJECT,))
     }
+    
+    __SERVER_ADDR = '127.0.0.1'
+    __SERVER_PORT = 8888
         
     def __init__(self):
         GObject.GObject.__init__(self)
@@ -27,7 +30,8 @@ class SocketListener(GObject.GObject):
         # Initialise server and start listening.
         self.__socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.__socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.__socket.bind(('127.0.0.1', 8888))
+        self.__logger.debug("binding to %s:%d" % (self.__SERVER_ADDR, self.__SERVER_PORT))
+        self.__socket.bind((self.__SERVER_ADDR, self.__SERVER_PORT))
         self.__logger.info("Listening...")
         
         # When there is data available, call the callback.
@@ -61,7 +65,6 @@ class SocketListener(GObject.GObject):
         # If it is the correct socket, read data from it.
         if fd == self.__socket.fileno():
             try:
-                #conn, addr = self.__socket.accept()
                 line = self.__socket.recv(1024)
                 self.__logger.debug("Rxd raw data: %s" % line)
                 msg = json.loads(line)
@@ -73,6 +76,5 @@ class SocketListener(GObject.GObject):
                     
             except Exception, e:
                 self.__logger.exception(e)
-                return True
             
             return True

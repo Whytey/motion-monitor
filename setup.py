@@ -13,7 +13,9 @@ data = dict(
     author_email = 'david@thewhytehouse.org',
     packages =      ['monitor'],
     scripts = ['motion-monitor'],
-    data_files = [('/etc/init', ['motion-monitor.conf'])],
+    data_files = [('/etc/init', ['motion-monitor.conf']), 
+                  ('/etc/apache2/sites-enabled', ['motion-monitor_apache.conf']),
+                  ('/var/www/motion-monitor', ['motion-monitor.wsgi'])],
     )
 
 

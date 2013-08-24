@@ -11,6 +11,7 @@ import monitor.cameramonitor
 import monitor.filemanager
 import monitor.socketlistener
 import monitor.zabbixwriter
+import monitor.jsoninterface
 import os
 
 class MainApp():
@@ -22,6 +23,7 @@ class MainApp():
         self.__in_development = os.path.exists(os.path.join(os.getcwd(), 'setup.py'))
         
         self.__logger = self.__setup_logger()
+        self.__logger.debug("Logger configured")
         
         self.__socket_listener = monitor.socketlistener.SocketListener()
         self.__camera_monitor = monitor.cameramonitor.CameraMonitor()
@@ -41,6 +43,10 @@ class MainApp():
         # SocketListener MANAGEMENT_EVENTs should be handled by the Sweeper.
         self.__socket_listener.connect(self.__socket_listener.MANAGEMENT_EVENT, 
                                        self.__sweeper.sweep)
+        
+        self.__json_interface = monitor.jsoninterface.JSONInterface(self.__camera_monitor)
+        
+        self.__logger.info("Initialised...")
 
         
         
@@ -76,6 +82,8 @@ class MainApp():
         
         logger.addHandler(file_handler)
         logger.addHandler(console_handler)
+        
+        return logger
 
 if __name__ == '__main__':
     MainApp()
