@@ -9,6 +9,13 @@ import logging
 
 class Camera():
     
+    FTYPE_IMAGE = 1
+    FTYPE_IMAGE_SNAPSHOT = 2
+    FTYPE_IMAGE_MOTION = 4
+    FTYPE_MPEG = 8
+    FTYPE_MPEG_MOTION = 16
+    FTYPE_MPEG_TIMELAPSE = 32
+    
     STATE_IDLE = 0
     STATE_ACTIVITY = 2
     STATE_LOST = 4
@@ -31,6 +38,10 @@ class Camera():
             self.__state = self.STATE_ACTIVITY
         if msg["type"] == "event_end":
             self.__state = self.STATE_IDLE
+            
+    def handle_picture(self, msg):
+        if msg["filetype"] == self.FTYPE_IMAGE_MOTION:
+            self.__last_snapshot = msg["file"]
     
 class CameraMonitor(GObject.GObject):
     
@@ -73,6 +84,9 @@ class CameraMonitor(GObject.GObject):
         if msg["type"] in ["event_end", "event_start"]:
             camera.handle_activity(msg)
             self.emit(self.ACTIVITY_EVENT, camera)
+            
+        if msg["type"] in ["picture_save"]:
+            camera.handle_picture(msg)
         
         return True
         

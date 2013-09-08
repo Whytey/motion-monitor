@@ -15,7 +15,7 @@ data = dict(
     scripts = ['motion-monitor'],
     data_files = [('/etc/init', ['motion-monitor.conf']), 
                   ('/etc/apache2/sites-enabled', ['motion-monitor_apache.conf']),
-                  ('/var/www/motion-monitor', ['motion-monitor.wsgi'])],
+                  ('/var/www/motion-monitor/wsgi', ['motion-monitor.wsgi'])],
     )
 
 
