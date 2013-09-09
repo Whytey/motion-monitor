@@ -30,6 +30,7 @@ class MotionEvent():
                 self.__bestimage = msg["file"] 
                 self.__bestimage_time = msg["timestamp"]
         except ValueError:
+            self.__logger.warning("Unable to cast the score: %s" % msg["score"])
             pass
         
     def toJSON(self):
@@ -62,18 +63,18 @@ class Camera():
         self.__last_snapshot = None
         self.__last_motion = None
         
-    def get_id(self):
-        return self.__camera_id
-    
-    def get_state(self):
-        return self.__state
-    
-    def get_last_snapshot(self):
-        return self.__last_snapshot
-    
-    def get_last_motion(self):
-        return self.__last_motion
-        
+#    def get_id(self):
+#        return self.__camera_id
+#    
+#    def get_state(self):
+#        return self.__state
+#    
+#    def get_last_snapshot(self):
+#        return self.__last_snapshot
+#    
+#    def get_last_motion(self):
+#        return self.__last_motion
+#        
     def handle_activity(self, msg):
         if msg["type"] == "event_start":
             self.__state = self.STATE_ACTIVITY
@@ -91,12 +92,14 @@ class Camera():
             
             if filetype == self.FTYPE_IMAGE:
                 self.__logger.debug("Handling motion image")
+                self.__logger.debug("Last motion: %s" % self.__last_motion)
                 self.__last_motion.handle_image(msg)
         except ValueError:
             self.__logger.warning("Received an unexpected filetype: %s" % msg["filetype"])
             
     def toJSON(self):
         self.__logger.debug("Getting JSON")
+        self.__logger.debug("Last motion: %s" % self.__last_motion)
         if self.__last_motion is None:
             last_motion_json = None
         else:
