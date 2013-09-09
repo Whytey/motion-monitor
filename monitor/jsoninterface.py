@@ -63,7 +63,7 @@ class JSONInterface():
                 if msg["type"] == "camera_summary":
                     cams_resp = []
                     for key, camera in self.__camera_monitor.get_cameras().items():
-                        cams_resp.append({"id": camera.get_id(), "state": camera.get_state()})
+                        cams_resp.append(camera.toJSON())
                     response["camera"] = cams_resp
                     
                 conn.send(json.dumps(response))

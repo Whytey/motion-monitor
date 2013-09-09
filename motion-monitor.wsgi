@@ -34,7 +34,6 @@ def application(environ, start_response):
 	output = sock.recv(4096)
 
 	status = '200 OK'
-#	output = "msg: %s" % msg
 
 	response_headers = [('Content-msg', 'application/json'),
 						('Content-Length', str(len(output)))]
