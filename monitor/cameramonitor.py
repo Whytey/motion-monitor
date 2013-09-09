@@ -79,7 +79,7 @@ class Camera():
         if msg["filetype"] == self.FTYPE_IMAGE_SNAPSHOT:
             self.__last_snapshot = msg["file"]
             
-        if msg["filetype"] == self.FTYPE_IMAGE_MOTION:
+        if msg["filetype"] == self.FTYPE_IMAGE:
             self.__last_motion.handle_image(msg)
             
     def toJSON(self):
