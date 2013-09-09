@@ -21,6 +21,7 @@ class MotionEvent():
         self.__bestimage_time = None
         
     def handle_image(self, msg):
+        self.__logger.debug("Handling an image")
         try:
             score = int(msg["score"])
             if score > self.__bestimage_score:
@@ -32,6 +33,7 @@ class MotionEvent():
             pass
         
     def toJSON(self):
+        self.__logger.debug("Getting JSON")
         return {"starttime": self.__starttime,
                 "event_id": self.__event_id,
                 "best_image": self.__bestimage,
@@ -94,6 +96,7 @@ class Camera():
             self.__logger.warning("Received an unexpected filetype: %s" % msg["filetype"])
             
     def toJSON(self):
+        self.__logger.debug("Getting JSON")
         if self.__last_motion is None:
             last_motion_json = None
         else:
