@@ -10,6 +10,10 @@ import logging
 class MotionEvent():
     
     def __init__(self, msg):
+        self.__logger = logging.getLogger("%s.MotionEvent" % __name__)
+        
+        self.__logger.debug("Initialising with msg: %s" % msg)
+
         self.__starttime = msg["starttime"]
         self.__event_id = msg["event"]
         self.__bestimage = None
@@ -20,6 +24,7 @@ class MotionEvent():
         try:
             score = int(msg["score"])
             if score > self.__bestimage_score:
+                self.__logger.debug("Score of %d is better than %d" % (score, self.__bestimage_score))
                 self.__bestimage_score = score
                 self.__bestimage = msg["file"] 
                 self.__bestimage_time = msg["timestamp"]
@@ -47,7 +52,7 @@ class Camera():
     STATE_LOST = 4
     
     def __init__(self, camera_id):
-        self.__logger = logging.getLogger(__name__)
+        self.__logger = logging.getLogger("%s.Camera" % __name__)
 
         self.__camera_id = camera_id
         self.__state = self.STATE_IDLE 
@@ -76,11 +81,17 @@ class Camera():
             self.__state = self.STATE_IDLE
             
     def handle_picture(self, msg):
-        if msg["filetype"] == self.FTYPE_IMAGE_SNAPSHOT:
-            self.__last_snapshot = msg["file"]
+        try:
+            filetype = int(msg["filetype"])
+            if filetype == self.FTYPE_IMAGE_SNAPSHOT:
+                self.__logger.debug("Handling a snapshot")
+                self.__last_snapshot = msg["file"]
             
-        if msg["filetype"] == self.FTYPE_IMAGE:
-            self.__last_motion.handle_image(msg)
+            if filetype == self.FTYPE_IMAGE:
+                self.__logger.debug("Handling motion image")
+                self.__last_motion.handle_image(msg)
+        except ValueError:
+            self.__logger.warning("Received an unexpected filetype: %s" % msg["filetype"])
             
     def toJSON(self):
         if self.__last_motion is None:
@@ -107,7 +118,7 @@ class CameraMonitor(GObject.GObject):
     def __init__(self):
         GObject.GObject.__init__(self)
         
-        self.__logger = logging.getLogger(__name__)
+        self.__logger = logging.getLogger("%s.CameraMonitor" % __name__)
         self.__cameras = {}
         
         self.__logger.info("Initialised")
