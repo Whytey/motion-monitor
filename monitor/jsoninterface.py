@@ -7,7 +7,6 @@ from gi.repository import GObject
 import json
 import logging
 import socket
-from monitor import cameramonitor
 
 
 class JSONInterface():
@@ -43,11 +42,10 @@ class JSONInterface():
 
 
     def __handle_json_request(self, fd, condition):
-        self.__logger.debug("Need to handle JSON request.")
-        # If it is the correct socket, read data from it.
-        if fd == self.__socket.fileno():
-            try:
-                
+        try:
+            self.__logger.debug("Need to handle JSON request.")
+            # If it is the correct socket, read data from it.
+            if fd == self.__socket.fileno():
                 conn, addr = self.__socket.accept()
                 # conn - socket to client
                 # addr - clients address
@@ -68,9 +66,8 @@ class JSONInterface():
                     
                 conn.send(json.dumps(response))
                 conn.close()
-                
-                    
-            except Exception, e:
-                self.__logger.exception(e)
-            
+
+        except Exception as e:
+            self.__logger.exception(e)
+            raise
         return True

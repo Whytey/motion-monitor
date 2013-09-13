@@ -19,9 +19,9 @@ def application(environ, start_response):
 	
 	msg = params.get('msg', [''])[0]
 	msg = escape(msg)
-	
+	print msg
 	# For testing
-	msg = {'type': 'camera_summary'}
+	msg = {'type': msg}
 	
 	
 	
@@ -35,7 +35,8 @@ def application(environ, start_response):
 
 	status = '200 OK'
 
-	response_headers = [('Content-msg', 'application/json'),
+	response_headers = [('Access-Control-Allow-Origin', "*"),
+					    ('Content-msg', 'application/json'),
 						('Content-Length', str(len(output)))]
 	start_response(status, response_headers)
 
@@ -44,5 +45,5 @@ def application(environ, start_response):
 
 # The following is for test purposes.
 if __name__ == '__main__':
-	httpd = make_server('localhost', 8051, application)
+	httpd = make_server('localhost', 80, application)
 	httpd.serve_forever()

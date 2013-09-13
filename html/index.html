@@ -1,0 +1,54 @@
+<html>
+<head>
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js">
+</script>
+<script>
+function layoutData(data){
+    var json = JSON.parse(data);
+    var table = "<table>";
+    $(json.camera).each(function(index, camera){
+        table += "<tr><td>"+camera.id+"</td><td>"+camera.state+"</td><td>"+camera.last_snapshot+"</td></tr>";
+    });
+    table += "</table>";
+    $("#data").html(table);
+}
+function getData(){
+    $.ajax({
+        type: "POST",
+        url: "http://localhost/motion-monitor/wsgi",
+        data: {
+                  msg:"camera_summary"
+              },
+
+        async: true, /* If set to non-async, browser shows page as "Loading.."*/
+        cache: false,
+        timeout:5000, /* Timeout in ms */
+
+        success: function(data){ /* called when request completes */
+            layoutData(data);
+            setTimeout(
+                getData, /* Request next poll */
+                3000 /* ..after 3 seconds */
+            );
+        },
+        error: function(XMLHttpRequest, textStatus, errorThrown){
+            alert("error", textStatus + " (" + errorThrown + ")");
+            setTimeout(
+                getData, /* Try again after.. */
+                15000); /* milliseconds (15seconds) */
+        }
+    });
+};
+
+
+$(document).ready(function(){
+    getData(); /* Start the first request */
+});
+</script>
+</head>
+<body>
+
+<div id="data"></div>
+
+</body>
+</html>

@@ -14,8 +14,8 @@ class MotionEvent():
         
         self.__logger.debug("Initialising with msg: %s" % msg)
 
-        self.__starttime = msg["starttime"]
-        self.__event_id = msg["event"]
+        self.__starttime = msg["timestamp"]
+        self.__event_id = 0
         self.__bestimage = None
         self.__bestimage_score = 0
         self.__bestimage_time = None
@@ -63,23 +63,24 @@ class Camera():
         self.__last_snapshot = None
         self.__last_motion = None
         
-#    def get_id(self):
-#        return self.__camera_id
-#    
-#    def get_state(self):
-#        return self.__state
-#    
-#    def get_last_snapshot(self):
-#        return self.__last_snapshot
-#    
-#    def get_last_motion(self):
-#        return self.__last_motion
-#        
+    def get_id(self):
+        return self.__camera_id
+    
+    def get_state(self):
+        return self.__state
+    
+    def get_last_snapshot(self):
+        return self.__last_snapshot
+    
+    def get_last_motion(self):
+        return self.__last_motion
+        
     def handle_activity(self, msg):
         if msg["type"] == "event_start":
             self.__state = self.STATE_ACTIVITY
             # We need a MotionEvent
             self.__last_motion = MotionEvent(msg)
+            self.__logger.debug("Last motion: %s" % self.__last_motion)
         if msg["type"] == "event_end":
             self.__state = self.STATE_IDLE
             
@@ -92,22 +93,23 @@ class Camera():
             
             if filetype == self.FTYPE_IMAGE:
                 self.__logger.debug("Handling motion image")
-                self.__logger.debug("Last motion: %s" % self.__last_motion)
                 self.__last_motion.handle_image(msg)
         except ValueError:
             self.__logger.warning("Received an unexpected filetype: %s" % msg["filetype"])
             
     def toJSON(self):
         self.__logger.debug("Getting JSON")
-        self.__logger.debug("Last motion: %s" % self.__last_motion)
         if self.__last_motion is None:
             last_motion_json = None
         else:
             last_motion_json = self.__last_motion.toJSON()
+            
+        recent_motion_json = []
+        recent_motion_json.append(last_motion_json)
         return {"id": self.__camera_id, 
                 "state": self.__state, 
                 "last_snapshot": self.__last_snapshot,
-                "last_motion": last_motion_json}
+                "recent_motion": recent_motion_json}
     
 class CameraMonitor(GObject.GObject):
     
@@ -135,25 +137,29 @@ class CameraMonitor(GObject.GObject):
         
        
     def handle_motion_event(self, object, msg):
-        self.__logger.debug("Handling a message: %s" % msg)
-        
-        # Get the camera responsible for this event.
-        camera_id = msg["camera"]
-        if not self.__cameras.has_key(camera_id):
-            # This is the first time we have encountered this camera
-            self.__logger.info("Creating an object for camera %s" % camera_id)
-            camera = Camera(camera_id)
-            self.__cameras[camera_id] = camera
+        try:
+            self.__logger.debug("Handling a message: %s" % msg)
             
-        camera = self.__cameras[camera_id]
-        
-        if msg["type"] in ["event_end", "event_start"]:
-            camera.handle_activity(msg)
-            self.emit(self.ACTIVITY_EVENT, camera)
+            # Get the camera responsible for this event.
+            camera_id = msg["camera"]
+            if not self.__cameras.has_key(camera_id):
+                # This is the first time we have encountered this camera
+                self.__logger.info("Creating an object for camera %s" % camera_id)
+                camera = Camera(camera_id)
+                self.__cameras[camera_id] = camera
+                
+            camera = self.__cameras[camera_id]
             
-        if msg["type"] in ["picture_save"]:
-            camera.handle_picture(msg)
+            if msg["type"] in ["event_end", "event_start"]:
+                camera.handle_activity(msg)
+                self.emit(self.ACTIVITY_EVENT, camera)
+                
+            if msg["type"] in ["picture_save"]:
+                camera.handle_picture(msg)
         
+        except Exception as e:
+            self.__logger.exception(e)
+            raise
         return True
         
         

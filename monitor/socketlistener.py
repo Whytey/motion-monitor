@@ -45,13 +45,13 @@ class SocketListener(GObject.GObject):
         self.__logger.debug("Got a message type of '%s'" % msg["type"])
 
         if msg["type"] in ["area_detected",
-                               "camera_lost",
-                               "event_end",
-                               "event_start",
-                               "motion_detected",
-                               "movie_end",
-                               "movie_start",
-                               "picture_save"]:
+                           "camera_lost",
+                           "event_end",
+                           "event_start",
+                           "motion_detected",
+                           "movie_end",
+                           "movie_start",
+                           "picture_save"]:
             return self.MOTION_EVENT
         
         if msg["type"] == "sweep":
@@ -61,10 +61,10 @@ class SocketListener(GObject.GObject):
 
         
     def __handle_socket_msg(self, fd, condition):
-        self.__logger.debug("Need to handle socket IO.")
-        # If it is the correct socket, read data from it.
-        if fd == self.__socket.fileno():
-            try:
+        try:
+            self.__logger.debug("Need to handle socket IO.")
+            # If it is the correct socket, read data from it.
+            if fd == self.__socket.fileno():
                 line = self.__socket.recv(1024)
                 self.__logger.debug("Rxd raw data: %s" % line)
                 msg = json.loads(line)
@@ -73,8 +73,8 @@ class SocketListener(GObject.GObject):
                     self.emit(self.MANAGEMENT_EVENT, msg)
                 if msg_type == self.MOTION_EVENT:
                     self.emit(self.MOTION_EVENT, msg)
-                    
-            except Exception, e:
-                self.__logger.exception(e)
-            
-            return True
+                        
+        except Exception as e:
+            self.__logger.exception(e)
+            raise
+        return True
