@@ -15,7 +15,7 @@ function layoutData(data){
 function getData(){
     $.ajax({
         type: "POST",
-        url: "http://localhost/motion-monitor/wsgi",
+        url: "http://benchmill2.thewhytehouse.org/motion-monitor/wsgi",
         data: {
                   msg:"camera_summary"
               },
@@ -28,7 +28,7 @@ function getData(){
             layoutData(data);
             setTimeout(
                 getData, /* Request next poll */
-                3000 /* ..after 3 seconds */
+                2000 /* ..after 2 seconds */
             );
         },
         error: function(XMLHttpRequest, textStatus, errorThrown){

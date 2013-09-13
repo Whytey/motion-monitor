@@ -18,9 +18,12 @@ def application(environ, start_response):
 	params = parse_qs(request_body)
 	
 	msg = params.get('msg', [''])[0]
+	
 	msg = escape(msg)
-	print msg
+	
 	# For testing
+	if msg == '':
+		msg = 'camera_summary'
 	msg = {'type': msg}
 	
 	
@@ -35,6 +38,7 @@ def application(environ, start_response):
 
 	status = '200 OK'
 
+    # Need to check if this allow-origin is really needed.	
 	response_headers = [('Access-Control-Allow-Origin', "*"),
 					    ('Content-msg', 'application/json'),
 						('Content-Length', str(len(output)))]
