@@ -13,12 +13,13 @@ function layoutData(data){
     $("#data").html(table);
 }
 function getData(){
+    var req = {
+                  type:"camera_summary"
+               };
     $.ajax({
         type: "POST",
-        url: "http://benchmill2.thewhytehouse.org/motion-monitor/wsgi",
-        data: {
-                  msg:"camera_summary"
-              },
+        url: "wsgi",
+        data: JSON.stringify(req),
 
         async: true, /* If set to non-async, browser shows page as "Loading.."*/
         cache: false,
