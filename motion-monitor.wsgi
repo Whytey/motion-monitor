@@ -4,12 +4,27 @@ from cgi import parse_qs, escape
 from wsgiref.simple_server import make_server
 import socket
 import json
+import base64
+
+JSON_TYPE = "JSON"
+JPEG_TYPE = "JPEG"
+
+HTTP_200 = "200 OK"
+HTTP_500 = "500 Internal Server Error"
+HTTP_503 = "503 Service Unavailable"
 
 def __validate_request(request):
     assert type(request) == dict, "Request should be a dictionary: %s" % request
     assert "type" in request, "Request does not specify what type it is: %s" % request
     assert request["type"] in ["camera_summary",
-                               "get_image"], "Not a valid request"
+                               "get_picture"], "Not a valid request: %s" % request
+                               
+    if request["type"] == "get_picture":
+        assert "path" in request, "Can't get_picture without a 'path': %s" % request
+        return JPEG_TYPE
+    
+    # By default, we return JSON
+    return JSON_TYPE
                                
 def __get_post_data(environ):
     # the environment variable CONTENT_LENGTH may be empty or missing
@@ -37,7 +52,32 @@ def __request_data(data):
 
     sock.connect(('localhost', 8889))
     sock.send(json.dumps(data))
-    return sock.recv(4096)
+    return sock.recv(65635)
+
+def __error_response(start_response, http_status, error_msg):
+    start_response(http_status, [('Content-Type', 'text/plain')])
+    return [error_msg]
+
+def __jpeg_response(start_response, response_json):
+    # Extract the image bytes from the JSON
+    image_bytes = response_json["bytes"]
+    decoded_string = base64.b64decode(image_bytes)
+    
+    # Need to check if this allow-origin is really needed.    
+    response_headers = [('Access-Control-Allow-Origin', "*"),
+                        ('Content-Type', 'image/jpeg'),
+                        ('Content-Length', str(len(decoded_string)))]
+    start_response(HTTP_200, response_headers)
+    return [decoded_string]
+
+def __json_response(start_response, response_json):
+    response_string = json.dumps(response_json)
+    # Need to check if this allow-origin is really needed.    
+    response_headers = [('Access-Control-Allow-Origin', "*"),
+                        ('Content-Type', 'application/json'),
+                        ('Content-Length', str(len(response_string)))]
+    start_response(HTTP_200, response_headers)
+    return [response_string]
 
 def application(environ, start_response):
     request_method = environ["REQUEST_METHOD"].lower()
@@ -48,30 +88,35 @@ def application(environ, start_response):
             data = __get_get_data(environ)
     except (TypeError, ValueError) as e:
         # Error
-		start_response('503 Service Unavailable', [('Content-Type', 'text/plain')])
-		return ['Invalid request type: %s' % e]
+        return __error_response(start_response, HTTP_503, 'Invalid request type: %s' % e)
     
     try:
-        __validate_request(data)
+        return_type = __validate_request(data)
     except AssertionError as e:
-        start_response('503 Service Unavailable', [('Content-Type', 'text/plain')])
-        return ['Invalid request: %s' % e]
+        return __error_response(start_response, HTTP_503, 'Invalid request: %s' % e)
     
     try:
-        output = __request_data(data)
+        response = __request_data(data)
     except Exception as e:
         # Socket errors
-		print e
-		start_response('500 Internal Server Error', [('Content-Type', 'text/plain')])
-		return ['Error processing request: %s' % e]
+        return __error_response(start_response, HTTP_500, 'Error processing request: %s' % e)
+        
+    response_json = json.loads(response)
+    print response_json
     
-    # Need to check if this allow-origin is really needed.    
-    response_headers = [('Access-Control-Allow-Origin', "*"),
-                        ('Content-msg', 'application/json'),
-                        ('Content-Length', str(len(output)))]
-    start_response('200 OK', response_headers)
-    return [output]
+    if "error" in response_json:
+        return __error_response(start_response, HTTP_503, str(response_json["error"])) 
+        
+    # Do the appropriate response now.
+    if return_type == JPEG_TYPE:
+        return __jpeg_response(start_response, response_json)
     
+    elif return_type == JSON_TYPE:
+        return __json_response(start_response, response_json)
+    else:    
+        # If we get to here, we must be in error, return error
+        return __error_response(start_response, HTTP_503, "Unexpected return type.")
+   
 
 # The following is for test purposes.
 if __name__ == '__main__':

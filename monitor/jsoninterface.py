@@ -7,6 +7,7 @@ from gi.repository import GObject
 import json
 import logging
 import socket
+import base64
 
 
 class JSONInterface():
@@ -38,9 +39,9 @@ class JSONInterface():
         
         self.__logger.debug("Got a message type of '%s'" % msg["type"])
 
-        assert msg["type"] in ["camera_summary"]
-
-
+        assert msg["type"] in ["camera_summary",
+                               "get_picture"]
+        
     def __handle_json_request(self, fd, condition):
         try:
             self.__logger.debug("Need to handle JSON request.")
@@ -54,16 +55,29 @@ class JSONInterface():
                 self.__logger.debug("Rxd raw data: %s" % line)
                 
                 msg = json.loads(line)
-                self.__validate_msg(msg)
-                
                 response = {}
+
+                try:
+                    self.__validate_msg(msg)
                 
-                if msg["type"] == "camera_summary":
-                    cams_resp = []
-                    for key, camera in self.__camera_monitor.get_cameras().items():
-                        cams_resp.append(camera.toJSON())
-                    response["camera"] = cams_resp
+                    if msg["type"] == "camera_summary":
+                        cams_resp = []
+                        for key, camera in self.__camera_monitor.get_cameras().items():
+                            cams_resp.append(camera.toJSON())
+                        response["camera"] = cams_resp
                     
+                    if msg["type"] == "get_picture":
+                        path = msg["path"]
+                        # Need to ensure we only serve up motion files.
+                        assert path.startswith("/data/motion/"), "Not a motion file: %s" % path
+
+                        with open(path, "rb") as image_file:
+                            encoded_string = base64.b64encode(image_file.read())
+                        response["bytes"] = encoded_string
+
+                except AssertionError as e:
+                    response["error"] = str(e)
+
                 conn.send(json.dumps(response))
                 conn.close()
 
