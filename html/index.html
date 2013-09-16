@@ -3,11 +3,11 @@
 <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js">
 </script>
 <script>
-function layoutData(data){
-    var json = JSON.parse(data);
+function layoutData(json){
+	console.log("Laying data");
     var table = "<table>";
     $(json.camera).each(function(index, camera){
-        table += "<tr><td>"+camera.id+"</td><td>"+camera.state+"</td><td>"+camera.last_snapshot+"</td></tr>";
+        table += "<tr><td>"+camera.id+"</td><td>"+camera.state+"</td><td><img src=\"http://benchmill2.thewhytehouse.org/motion-monitor/wsgi/?type=get_picture&path="+camera.last_snapshot+"\"</td></tr>";
     });
     table += "</table>";
     $("#data").html(table);
@@ -18,8 +18,9 @@ function getData(){
                };
     $.ajax({
         type: "POST",
-        url: "wsgi",
+        url: "http://benchmill2.thewhytehouse.org/motion-monitor/wsgi",
         data: JSON.stringify(req),
+        dataType: 'json',
 
         async: true, /* If set to non-async, browser shows page as "Loading.."*/
         cache: false,
@@ -29,7 +30,7 @@ function getData(){
             layoutData(data);
             setTimeout(
                 getData, /* Request next poll */
-                2000 /* ..after 2 seconds */
+                15000 /* ..after 15 seconds */
             );
         },
         error: function(XMLHttpRequest, textStatus, errorThrown){
