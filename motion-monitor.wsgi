@@ -52,7 +52,12 @@ def __request_data(data):
 
     sock.connect(('localhost', 8889))
     sock.send(json.dumps(data))
-    return sock.recv(65635)
+    rxd_data = []
+    while True:
+        data = sock.recv(65635)
+        if not data: break
+        rxd_data.append(data)
+    return ''.join(rxd_data)
 
 def __error_response(start_response, http_status, error_msg):
     start_response(http_status, [('Content-Type', 'text/plain')])
