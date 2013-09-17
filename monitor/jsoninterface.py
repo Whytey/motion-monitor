@@ -3,19 +3,24 @@ Created on 11/08/2013
 
 @author: djwhyte
 '''
+from PIL import Image
+from StringIO import StringIO
 from gi.repository import GObject
+import base64
 import json
 import logging
 import socket
-import base64
-from PIL import Image
-from StringIO import StringIO
+import datetime
+import time
 
 
 class JSONInterface():
     
     __SERVER_ADDR = '127.0.0.1'
     __SERVER_PORT = 8889
+    __CONFIG_target_dir = '/data/motion/'
+    __CONFIG_snapshot_filename = 'snapshots/camera%t/%Y/%m/%d/%H/%M/%S-snapshot.jpg'
+
 
     
     def __init__(self, camera_monitor):
@@ -46,14 +51,37 @@ class JSONInterface():
         if msg["type"] == "get_picture":
             assert ("path" in msg) or ("camera" in msg and "timestamp" in msg), "Can't get_picture without a 'path': %s" % msg
             
+    def __decode_image_path(self, msg):
+        timestamp = msg["timestamp"]
+        camera = msg["camera"]
+        
+        # Parse the string timestamp
+        ts = datetime.datetime.strptime(timestamp, '%Y%m%d%H%M%S')
+        
+        path = self.__CONFIG_target_dir + self.__CONFIG_snapshot_filename
+
+        # Inject the camera number
+        path = path.replace("%t", camera)
+        
+        # Overlay the timestamp into the filepath
+        path = ts.strftime(path)
+        
+        self.__logger.debug("Decoded the image path of %s to %s" % (msg, path))
+        return path
+            
     def __get_image(self, msg):
-        path = msg["path"]
+        if "path" in msg:
+            path = msg["path"]
+        else: 
+            path = self.__decode_image_path(msg)
+            
         # Need to ensure we only serve up motion files.
         assert path.startswith("/data/motion/"), "Not a motion file: %s" % path
         # TODO: Need to only server up jpeg files.
 
         with open(path, "rb") as image_file:
             if "thumbnail" in msg and msg["thumbnail"].upper() == "TRUE":
+                self.__logger.debug("Creating a thumbnail")
                 size = 160, 120
                 thumbnail = StringIO()
                 im = Image.open(image_file)
@@ -64,6 +92,7 @@ class JSONInterface():
                 file_bytes = image_file.read()
 
         encoded_string = base64.b64encode(file_bytes)
+        self.__logger.debug("Returning encoded image bytes")
         return encoded_string
         
     def __handle_json_request(self, fd, condition):
@@ -98,6 +127,7 @@ class JSONInterface():
             response["error"] = str(e)
         finally:
             if not conn is None:
+                self.__logger.debug("Sending response: %s" % response)
                 conn.send(json.dumps(response))
                 conn.close()
             
