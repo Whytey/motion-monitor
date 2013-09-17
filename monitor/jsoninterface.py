@@ -8,6 +8,8 @@ import json
 import logging
 import socket
 import base64
+from PIL import Image
+from StringIO import StringIO
 
 
 class JSONInterface():
@@ -41,8 +43,32 @@ class JSONInterface():
 
         assert msg["type"] in ["camera_summary",
                                "get_picture"]
+        if msg["type"] == "get_picture":
+            assert ("path" in msg) or ("camera" in msg and "timestamp" in msg), "Can't get_picture without a 'path': %s" % msg
+            
+    def __get_image(self, msg):
+        path = msg["path"]
+        # Need to ensure we only serve up motion files.
+        assert path.startswith("/data/motion/"), "Not a motion file: %s" % path
+        # TODO: Need to only server up jpeg files.
+
+        with open(path, "rb") as image_file:
+            if "thumbnail" in msg and msg["thumbnail"].upper() == "TRUE":
+                size = 160, 120
+                thumbnail = StringIO()
+                im = Image.open(image_file)
+                im.thumbnail(size, Image.ANTIALIAS)
+                im.save(thumbnail, "JPEG")
+                file_bytes = thumbnail.getvalue()
+            else:
+                file_bytes = image_file.read()
+
+        encoded_string = base64.b64encode(file_bytes)
+        return encoded_string
         
     def __handle_json_request(self, fd, condition):
+        response = {}
+
         try:
             self.__logger.debug("Need to handle JSON request.")
             # If it is the correct socket, read data from it.
@@ -55,33 +81,24 @@ class JSONInterface():
                 self.__logger.debug("Rxd raw data: %s" % line)
                 
                 msg = json.loads(line)
-                response = {}
 
-                try:
-                    self.__validate_msg(msg)
+                self.__validate_msg(msg)
+            
+                if msg["type"] == "camera_summary":
+                    cams_resp = []
+                    for key, camera in self.__camera_monitor.get_cameras().items():
+                        cams_resp.append(camera.toJSON())
+                    response["camera"] = cams_resp
                 
-                    if msg["type"] == "camera_summary":
-                        cams_resp = []
-                        for key, camera in self.__camera_monitor.get_cameras().items():
-                            cams_resp.append(camera.toJSON())
-                        response["camera"] = cams_resp
-                    
-                    if msg["type"] == "get_picture":
-                        path = msg["path"]
-                        # Need to ensure we only serve up motion files.
-                        assert path.startswith("/data/motion/"), "Not a motion file: %s" % path
-
-                        with open(path, "rb") as image_file:
-                            encoded_string = base64.b64encode(image_file.read())
-                        response["bytes"] = encoded_string
-
-                except AssertionError as e:
-                    response["error"] = str(e)
-
-                conn.send(json.dumps(response))
-                conn.close()
+                if msg["type"] == "get_picture":
+                    response["bytes"] = self.__get_image(msg)
 
         except Exception as e:
             self.__logger.exception(e)
-            raise
+            response["error"] = str(e)
+        finally:
+            if not conn is None:
+                conn.send(json.dumps(response))
+                conn.close()
+            
         return True

@@ -12,7 +12,7 @@ JPEG_TYPE = "JPEG"
 HTTP_200 = "200 OK"
 HTTP_500 = "500 Internal Server Error"
 HTTP_503 = "503 Service Unavailable"
-
+#
 def __validate_request(request):
     assert type(request) == dict, "Request should be a dictionary: %s" % request
     assert "type" in request, "Request does not specify what type it is: %s" % request
@@ -20,7 +20,6 @@ def __validate_request(request):
                                "get_picture"], "Not a valid request: %s" % request
                                
     if request["type"] == "get_picture":
-        assert "path" in request, "Can't get_picture without a 'path': %s" % request
         return JPEG_TYPE
     
     # By default, we return JSON
