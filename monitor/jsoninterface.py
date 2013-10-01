@@ -3,26 +3,125 @@ Created on 11/08/2013
 
 @author: djwhyte
 '''
-from PIL import Image
+from PIL import Image as PILImage
 from StringIO import StringIO
 from gi.repository import GObject
 import base64
+import datetime
 import json
 import logging
 import socket
-import datetime
 import time
+
+
+
+class Image():
+    """This is an Image object, as represented in JSON"""
+
+    __CONFIG_target_dir = '/data/motion/'
+    __CONFIG_snapshot_filename = 'snapshots/camera%t/%Y/%m/%d/%H/%M/%S-snapshot.jpg'
+    
+    TYPE_SNAPSHOT = {"id": 1, "name": "snapshot"}
+    TYPE_MOTION = {"id": 2, "name": "motion"}
+    
+    def __init__(self, type = None, cameraid = None, timestamp = None, thumbnail = False, include_image = False):
+        self.__logger = logging.getLogger("%s.Image" % __name__)
+        self.__type = type
+        self.__cameraid = cameraid
+        self.__timestamp = timestamp
+        self.__thumbnail = thumbnail
+        self.__include_image = include_image
+        self.__path = Image.__decode_image_path(self.__type, self.__cameraid, self.__timestamp)
+    
+    
+    def toJSON(self):
+        self.__logger.debug("Getting JSON")
+        jsonstr = {"type": self.__type["name"],
+                   "cameraid": self.__cameraid,
+                   "timestamp": self.__timestamp,
+                   "path": self.__path,
+                   "thumbnail": self.__thumbnail}
+        if self.__include_image:
+            jsonstr["image"] = self.__get_image_data()
+        return jsonstr
+    
+    def __get_image_data(self):
+        # Need to ensure we only serve up motion files.
+        assert self.__path.startswith("/data/motion/"), "Not a motion file: %s" % self.__path
+        # TODO: Need to only server up jpeg files.
+
+        with open(self.__path, "rb") as image_file:
+            if self.__thumbnail:
+                self.__logger.debug("Creating a thumbnail")
+                size = 160, 120
+                thumbnail = StringIO()
+                im = PILImage.open(image_file)
+                im.thumbnail(size, PILImage.ANTIALIAS)
+                im.save(thumbnail, "JPEG")
+                file_bytes = thumbnail.getvalue()
+            else:
+                file_bytes = image_file.read()
+
+        encoded_string = base64.b64encode(file_bytes)
+        self.__logger.debug("Returning encoded image bytes")
+        return encoded_string
+
+    @staticmethod
+    def __decode_image_path(type, cameraid, timestamp):
+        
+        # Parse the string timestamp
+        ts = datetime.datetime.strptime(timestamp, '%Y%m%d%H%M%S')
+        
+        path = Image.__CONFIG_target_dir + Image.__CONFIG_snapshot_filename
+
+        # Inject the camera number
+        path = path.replace("%t", cameraid)
+        
+        # Overlay the timestamp into the filepath
+        path = ts.strftime(path)
+        
+#        Image.__logger.debug("Decoded the image path to %s" % path)
+        return path
+    
+    @staticmethod        
+    def get(params):
+        # Validate the params
+        assert "type" in params, "No type is specified: %s" % params
+        assert "cameraid" in params, "No cameraid is specified: %s" % params
+        assert "timestamp" in params, "No timestamp is specified: %s" % params
+        
+        assert int(params["type"]) in [Image.TYPE_MOTION["id"], Image.TYPE_SNAPSHOT["id"]], "Type is not recognised: %s" % params 
+        
+        if int(params["type"]) == Image.TYPE_MOTION["id"]:
+            type = Image.TYPE_MOTION
+        else: 
+            type = Image.TYPE_SNAPSHOT
+            
+        cameraid = params["cameraid"]
+        timestamp = params["timestamp"]
+        
+        # Optional thumbnail flag
+        thumbnail = False
+        if "thumbnail" in params:
+            thumbnail = params["thumbnail"].upper() == "TRUE"
+            
+        # Optional include_image flag
+        include_image = False
+        if "include_image" in params:
+            include_image = params["include_image"].upper() == "TRUE"
+        
+        # Create the Image and return it
+        return [Image(type, cameraid, timestamp, thumbnail, include_image)]
 
 
 class JSONInterface():
     
     __SERVER_ADDR = '127.0.0.1'
     __SERVER_PORT = 8889
+    
     __CONFIG_target_dir = '/data/motion/'
     __CONFIG_snapshot_filename = 'snapshots/camera%t/%Y/%m/%d/%H/%M/%S-snapshot.jpg'
 
-
-    
     def __init__(self, camera_monitor):
         self.__logger = logging.getLogger(__name__)
         
@@ -42,59 +141,17 @@ class JSONInterface():
         
     def __validate_msg(self, msg):
         assert type(msg) == dict, "Message should be a dictionary: %s" % msg
-        assert "type" in msg, "Message does not specify what type it is: %s" % msg
+        assert "method" in msg, "Message does not specify what method it is: %s" % msg
+        self.__logger.debug("Got a message method of '%s'" % msg["method"])
         
-        self.__logger.debug("Got a message type of '%s'" % msg["type"])
+        # Check we have a valid method
+        assert msg["method"] in ["camera.get",
+                                 "image.get"]
 
-        assert msg["type"] in ["camera_summary",
-                               "get_picture"]
-        if msg["type"] == "get_picture":
-            assert ("path" in msg) or ("camera" in msg and "timestamp" in msg), "Can't get_picture without a 'path': %s" % msg
+        # Check that params have been provided, not necessarily valid params.
+        assert "params" in msg, "Message does not specify any parameters: %s" % msg
+        
             
-    def __decode_image_path(self, msg):
-        timestamp = msg["timestamp"]
-        camera = msg["camera"]
-        
-        # Parse the string timestamp
-        ts = datetime.datetime.strptime(timestamp, '%Y%m%d%H%M%S')
-        
-        path = self.__CONFIG_target_dir + self.__CONFIG_snapshot_filename
-
-        # Inject the camera number
-        path = path.replace("%t", camera)
-        
-        # Overlay the timestamp into the filepath
-        path = ts.strftime(path)
-        
-        self.__logger.debug("Decoded the image path of %s to %s" % (msg, path))
-        return path
-            
-    def __get_image(self, msg):
-        if "path" in msg:
-            path = msg["path"]
-        else: 
-            path = self.__decode_image_path(msg)
-            
-        # Need to ensure we only serve up motion files.
-        assert path.startswith("/data/motion/"), "Not a motion file: %s" % path
-        # TODO: Need to only server up jpeg files.
-
-        with open(path, "rb") as image_file:
-            if "thumbnail" in msg and msg["thumbnail"].upper() == "TRUE":
-                self.__logger.debug("Creating a thumbnail")
-                size = 160, 120
-                thumbnail = StringIO()
-                im = Image.open(image_file)
-                im.thumbnail(size, Image.ANTIALIAS)
-                im.save(thumbnail, "JPEG")
-                file_bytes = thumbnail.getvalue()
-            else:
-                file_bytes = image_file.read()
-
-        encoded_string = base64.b64encode(file_bytes)
-        self.__logger.debug("Returning encoded image bytes")
-        return encoded_string
-        
     def __handle_json_request(self, fd, condition):
         response = {}
 
@@ -113,18 +170,26 @@ class JSONInterface():
 
                 self.__validate_msg(msg)
             
-                if msg["type"] == "camera_summary":
+                if msg["method"] == "camera.get":
                     cams_resp = []
                     for key, camera in self.__camera_monitor.get_cameras().items():
                         cams_resp.append(camera.toJSON())
                     response["camera"] = cams_resp
                 
-                if msg["type"] == "get_picture":
-                    response["bytes"] = self.__get_image(msg)
-
+                if msg["method"] == "image.get":
+                    results = Image.get(msg["params"])
+                    results_json = []
+                    for result in results:
+                        results_json.append(result.toJSON())
+                    response["result"] = results_json 
+                    
         except Exception as e:
             self.__logger.exception(e)
-            response["error"] = str(e)
+            error = {}
+            error["code"] = 1
+            error["message"] = "JSON Exception"
+            error["data"] = str(e)
+            response["error"] = error
         finally:
             if not conn is None:
                 self.__logger.debug("Sending response: %s" % response)

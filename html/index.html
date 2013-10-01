@@ -1,56 +1,23 @@
 <html>
 <head>
-<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js">
-</script>
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+<script src="jpegimage.js"></script>
+<script src="camerasummary.js"></script>
+<script src="io.js"></script>
 <script>
-function layoutData(json){
-	console.log("Laying data");
-    var table = "<table>";
-    $(json.camera).each(function(index, camera){
-        table += "<tr><td>"+camera.id+"</td><td>"+camera.state+"</td><td><img src=\"http://benchmill2.thewhytehouse.org/motion-monitor/wsgi/?type=get_picture&path="+camera.last_snapshot+"\"</td></tr>";
-    });
-    table += "</table>";
-    $("#data").html(table);
-}
-function getData(){
-    var req = {
-                  type:"camera_summary"
-               };
-    $.ajax({
-        type: "POST",
-        url: "http://benchmill2.thewhytehouse.org/motion-monitor/wsgi",
-        data: JSON.stringify(req),
-        dataType: 'json',
-
-        async: true, /* If set to non-async, browser shows page as "Loading.."*/
-        cache: false,
-        timeout:5000, /* Timeout in ms */
-
-        success: function(data){ /* called when request completes */
-            layoutData(data);
-            setTimeout(
-                getData, /* Request next poll */
-                15000 /* ..after 15 seconds */
-            );
-        },
-        error: function(XMLHttpRequest, textStatus, errorThrown){
-            alert("error", textStatus + " (" + errorThrown + ")");
-            setTimeout(
-                getData, /* Try again after.. */
-                15000); /* milliseconds (15seconds) */
-        }
-    });
-};
-
 
 $(document).ready(function(){
-    getData(); /* Start the first request */
+	
+	var cs = new CameraSummary("cameras");
+	var io = new IO(cs, 5000);
+	io.getData();
 });
+
 </script>
 </head>
 <body>
-
-<div id="data"></div>
+<div id="messages"></div>
+<div id="cameras"></div>
 
 </body>
 </html>

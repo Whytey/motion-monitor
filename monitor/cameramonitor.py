@@ -60,7 +60,8 @@ class Camera():
         self.__camera_id = camera_id
         self.__state = self.STATE_IDLE 
         
-        self.__last_snapshot = None
+        self.__last_snapshot_path = None
+        self.__last_snapshot_timestamp = None
         self.__last_motion = None
         
     def get_id(self):
@@ -70,7 +71,7 @@ class Camera():
         return self.__state
     
     def get_last_snapshot(self):
-        return self.__last_snapshot
+        return self.__last_snapshot_path
     
     def get_last_motion(self):
         return self.__last_motion
@@ -89,7 +90,8 @@ class Camera():
             filetype = int(msg["filetype"])
             if filetype == self.FTYPE_IMAGE_SNAPSHOT:
                 self.__logger.debug("Handling a snapshot")
-                self.__last_snapshot = msg["file"]
+                self.__last_snapshot_path = msg["file"]
+                self.__last_snapshot_timestamp = msg["timestamp"]
             
             if filetype == self.FTYPE_IMAGE:
                 self.__logger.debug("Handling motion image")
@@ -108,7 +110,8 @@ class Camera():
         recent_motion_json.append(last_motion_json)
         return {"id": self.__camera_id, 
                 "state": self.__state, 
-                "last_snapshot": self.__last_snapshot,
+                "last_snapshot_path": self.__last_snapshot_path,
+                "last_snapshot_timestamp": self.__last_snapshot_timestamp,
                 "recent_motion": recent_motion_json}
     
 class CameraMonitor(GObject.GObject):
