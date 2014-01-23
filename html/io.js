@@ -1,5 +1,5 @@
 function IO(widget, refreshRate) {
-	this.url = "wsgi";
+	this.url = "http://benchmill2.thewhytehouse.org/motion-monitor/wsgi";
 	this.widget = widget;
 	this.refreshRate = refreshRate;
 	
@@ -27,8 +27,8 @@ function IO(widget, refreshRate) {
 	            }
 	        }, this),
 	        error: $.proxy(function(XMLHttpRequest, textStatus, errorThrown){
-	            alert("error", textStatus + " (" + errorThrown + ")");
-	            setTimeout(
+	        	widget.handleError(textStatus);
+	        	setTimeout(
 	                this.getData, /* Try again after.. */
 	                15000); /* milliseconds (15seconds) */
 	        }, this)

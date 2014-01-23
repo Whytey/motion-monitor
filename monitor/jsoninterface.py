@@ -11,47 +11,45 @@ import datetime
 import json
 import logging
 import socket
-import time
-
 
 
 class Image():
     """This is an Image object, as represented in JSON"""
 
-    __CONFIG_target_dir = '/data/motion/'
-    __CONFIG_snapshot_filename = 'snapshots/camera%t/%Y/%m/%d/%H/%M/%S-snapshot.jpg'
+    _CONFIG_target_dir = '/data/motion/'
+    _CONFIG_snapshot_filename = 'snapshots/camera%t/%Y/%m/%d/%H/%M/%S-snapshot.jpg'
+    _CONFIG_motion_filename = 'motion/camera%t/%Y%m%d/%v/%Y%m%d-%H%M%S-%q.jpg'
     
-    TYPE_SNAPSHOT = {"id": 1, "name": "snapshot"}
-    TYPE_MOTION = {"id": 2, "name": "motion"}
+    TYPE_MOTION = 2
+    TYPE_SNAPSHOT = 1
     
-    def __init__(self, type = None, cameraid = None, timestamp = None, thumbnail = False, include_image = False):
+    def __init__(self, cameraid = None, timestamp = None, thumbnail = False, include_image = False):
         self.__logger = logging.getLogger("%s.Image" % __name__)
-        self.__type = type
-        self.__cameraid = cameraid
-        self.__timestamp = timestamp
-        self.__thumbnail = thumbnail
-        self.__include_image = include_image
-        self.__path = Image.__decode_image_path(self.__type, self.__cameraid, self.__timestamp)
+        self._cameraid = cameraid
+        self._timestamp = timestamp
+        self._thumbnail = thumbnail
+        self._include_image = include_image
     
     
     def toJSON(self):
         self.__logger.debug("Getting JSON")
-        jsonstr = {"type": self.__type["name"],
-                   "cameraid": self.__cameraid,
-                   "timestamp": self.__timestamp,
-                   "path": self.__path,
-                   "thumbnail": self.__thumbnail}
-        if self.__include_image:
-            jsonstr["image"] = self.__get_image_data()
+        jsonstr = {"imageType": self._imageType(),
+                   "cameraid": self._cameraid,
+                   "timestamp": self._timestamp,
+                   "path": self._path,
+                   "thumbnail": self._thumbnail}
+        if self._include_image:
+            jsonstr["image"] = self._get_image_data()
         return jsonstr
     
-    def __get_image_data(self):
+    def _get_image_data(self):
         # Need to ensure we only serve up motion files.
-        assert self.__path.startswith("/data/motion/"), "Not a motion file: %s" % self.__path
-        # TODO: Need to only server up jpeg files.
+        assert self._path.startswith("/data/motion/"), "Not a motion file: %s" % self._path
+        
+        # TODO: Need to only serve up jpeg files.
 
-        with open(self.__path, "rb") as image_file:
-            if self.__thumbnail:
+        with open(self._path, "rb") as image_file:
+            if self._thumbnail:
                 self.__logger.debug("Creating a thumbnail")
                 size = 160, 120
                 thumbnail = StringIO()
@@ -67,20 +65,17 @@ class Image():
         return encoded_string
 
     @staticmethod
-    def __decode_image_path(type, cameraid, timestamp):
+    def _decode_image_path(path, cameraid, timestamp):
         
         # Parse the string timestamp
         ts = datetime.datetime.strptime(timestamp, '%Y%m%d%H%M%S')
         
-        path = Image.__CONFIG_target_dir + Image.__CONFIG_snapshot_filename
-
         # Inject the camera number
         path = path.replace("%t", cameraid)
         
         # Overlay the timestamp into the filepath
         path = ts.strftime(path)
         
-#        Image.__logger.debug("Decoded the image path to %s" % path)
         return path
     
     @staticmethod        
@@ -90,13 +85,8 @@ class Image():
         assert "cameraid" in params, "No cameraid is specified: %s" % params
         assert "timestamp" in params, "No timestamp is specified: %s" % params
         
-        assert int(params["type"]) in [Image.TYPE_MOTION["id"], Image.TYPE_SNAPSHOT["id"]], "Type is not recognised: %s" % params 
+        assert int(params["type"]) in [Image.TYPE_MOTION, Image.TYPE_SNAPSHOT], "Type is not recognised: %s" % params 
         
-        if int(params["type"]) == Image.TYPE_MOTION["id"]:
-            type = Image.TYPE_MOTION
-        else: 
-            type = Image.TYPE_SNAPSHOT
-            
         cameraid = params["cameraid"]
         timestamp = params["timestamp"]
         
@@ -109,9 +99,39 @@ class Image():
         include_image = False
         if "include_image" in params:
             include_image = params["include_image"].upper() == "TRUE"
+            
+        if int(params["type"]) == Image.TYPE_MOTION:
+            assert "event" in params, "No event is specified for motion image: %s" % params
+            event = params["event"]
+            return [MotionImage(cameraid, timestamp, event, thumbnail, include_image)]
+        else:
+            # Can only be a snapshot!
+            return [SnapshotImage(cameraid, timestamp, thumbnail, include_image)]
+
+class MotionImage(Image):
+    def __init__(self, cameraid = None, timestamp = None, event = None, thumbnail = False, include_image = False):
+        self.__logger = logging.getLogger("%s.MotionImage" % __name__)
+        Image.__init__(self, cameraid, timestamp, thumbnail, include_image)
+        self._event = event
+        self._path = Image._CONFIG_target_dir + Image._CONFIG_motion_filename
+        self._path = self._path.replace("%v", self._event)
+        self._path = Image._decode_image_path(self._path, self._cameraid, self._timestamp)
+        self.__logger.debug("Getting JSON")
+
         
-        # Create the Image and return it
-        return [Image(type, cameraid, timestamp, thumbnail, include_image)]
+    def _imageType(self):
+        return "motion"
+
+class SnapshotImage(Image):
+    def __init__(self, cameraid = None, timestamp = None, thumbnail = False, include_image = False):
+        self.__logger = logging.getLogger("%s.SnapshotImage" % __name__)
+        Image.__init__(self, cameraid, timestamp, thumbnail, include_image)
+
+        self._path = Image._CONFIG_target_dir + Image._CONFIG_snapshot_filename
+        self._path = Image._decode_image_path(self._path, self._cameraid, self._timestamp)
+
+    def _imageType(self):
+        return "snapshot"
 
 
 class JSONInterface():
@@ -119,8 +139,8 @@ class JSONInterface():
     __SERVER_ADDR = '127.0.0.1'
     __SERVER_PORT = 8889
     
-    __CONFIG_target_dir = '/data/motion/'
-    __CONFIG_snapshot_filename = 'snapshots/camera%t/%Y/%m/%d/%H/%M/%S-snapshot.jpg'
+    _CONFIG_target_dir = '/data/motion/'
+    _CONFIG_snapshot_filename = 'snapshots/camera%t/%Y/%m/%d/%H/%M/%S-snapshot.jpg'
 
     def __init__(self, camera_monitor):
         self.__logger = logging.getLogger(__name__)

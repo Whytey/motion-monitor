@@ -23,6 +23,8 @@ function CameraSummary(tagId) {
 	    cell.innerHTML = "<b>State</b>";
 	    cell = headerRow.insertCell(-1);
 	    cell.innerHTML = "<b>Snapshot</b>";
+	    cell = headerRow.insertCell(-1);
+	    cell.innerHTML = "<b>Last Motion</b>";
 	
 	    $(json.camera).each(function(index, camera) {
 	        var tr = tbl.insertRow(-1);
@@ -33,21 +35,37 @@ function CameraSummary(tagId) {
 	        var stateCell = tr.insertCell(-1);
 	        stateCell.appendChild(document.createTextNode(camera.state));
 
-	        var imageCell = tr.insertCell(-1);
-	    	var imageElementId = "camera" + camera.id + "Image";
+	        var snapshotCell = tr.insertCell(-1);
+	    	var snapshotElementId = "camera" + camera.id + "Snapshot";
 
-	    	var imageElement = document.createElement("image");
-	        imageElement.setAttribute("id", imageElementId);
-	    	imageCell.appendChild(imageElement);
+	    	var snapshotElement = document.createElement("image");
+	    	snapshotElement.setAttribute("id", snapshotElementId);
+	    	snapshotCell.appendChild(snapshotElement);
 
-	    	var image = new JPEGImage(imageElementId, "1", camera.id, camera.last_snapshot_timestamp, "true");
-	    	var io = new IO(image, null);
+	    	var snapshot = new JPEGImage(snapshotElementId, "2", camera.id, camera.last_snapshot_timestamp, "true");
+	    	var io = new IO(snapshot, null);
 	    	io.getData();
 
-	        var lastMotionCell = tr.insertCell(-1);
+	        var motionCell = tr.insertCell(-1);
+	    	var motionElementId = "camera" + camera.id + "Motion";
+
+	    	var motionElement = document.createElement("image");
+	    	motionElement.setAttribute("id", motionElementId);
+	    	motionCell.appendChild(motionElement);
+	    	
+	    	if (camera.recent_motion[0] != null) {
+		    	var motion = new JPEGImage(motionElementId, "1", camera.id, camera.recent_motion[0].best_image_time, "true");
+		    	var io = new IO(motion, null);
+		    	io.getData();
+	    	}
+
 	    });
 	    
 	    var div = document.getElementById(this.tagId);
 	    div.innerHTML = tbl.outerHTML;
+	}
+	
+	this.handleError = function(json) {
+	    console.log("Handling camera_summary error");
 	}
 }

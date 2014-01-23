@@ -25,7 +25,7 @@ class SocketListener(GObject.GObject):
     def __init__(self):
         GObject.GObject.__init__(self)
         
-        self.__logger = logging.getLogger(__name__)
+        self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
         
         # Initialise server and start listening.
         self.__socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

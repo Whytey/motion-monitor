@@ -10,7 +10,7 @@ import logging
 class MotionEvent():
     
     def __init__(self, msg):
-        self.__logger = logging.getLogger("%s.MotionEvent" % __name__)
+        self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
         
         self.__logger.debug("Initialising with msg: %s" % msg)
 
@@ -55,7 +55,7 @@ class Camera():
     STATE_LOST = 4
     
     def __init__(self, camera_id):
-        self.__logger = logging.getLogger("%s.Camera" % __name__)
+        self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
 
         self.__camera_id = camera_id
         self.__state = self.STATE_IDLE 
@@ -129,7 +129,7 @@ class CameraMonitor(GObject.GObject):
     def __init__(self):
         GObject.GObject.__init__(self)
         
-        self.__logger = logging.getLogger("%s.CameraMonitor" % __name__)
+        self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
         self.__cameras = {}
         
         self.__logger.info("Initialised")

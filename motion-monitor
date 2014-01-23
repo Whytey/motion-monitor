@@ -9,9 +9,10 @@ import logging
 import logging.handlers
 import monitor.cameramonitor
 import monitor.filemanager
-import monitor.socketlistener
-import monitor.zabbixwriter
 import monitor.jsoninterface
+import monitor.socketlistener
+import monitor.sqlexchanger
+import monitor.zabbixwriter
 import os
 
 class MainApp():
@@ -28,10 +29,15 @@ class MainApp():
         self.__socket_listener = monitor.socketlistener.SocketListener()
         self.__camera_monitor = monitor.cameramonitor.CameraMonitor()
         self.__zabbixwriter = monitor.zabbixwriter.ZabbixWriter()
+        self.__sqlwriter = monitor.sqlexchanger.SQLWriter()
         
         # SocketListener MOTION_EVENTs should be handled by the CameraMonitor.
         self.__socket_listener.connect(self.__socket_listener.MOTION_EVENT, 
                                        self.__camera_monitor.handle_motion_event)
+        
+        # SocketListener MOTION_EVENTs should be handled by the SQLWriter.
+        self.__socket_listener.connect(self.__socket_listener.MOTION_EVENT, 
+                                       self.__sqlwriter.handle_motion_event)
         
         # CameraMonitor ACTIVITY_EVENTs are handled by the ZabbixWriter.
         self.__camera_monitor.connect(self.__camera_monitor.ACTIVITY_EVENT, 
