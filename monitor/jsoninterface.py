@@ -20,8 +20,8 @@ class Image():
     _CONFIG_snapshot_filename = 'snapshots/camera%t/%Y/%m/%d/%H/%M/%S-snapshot.jpg'
     _CONFIG_motion_filename = 'motion/camera%t/%Y%m%d/%v/%Y%m%d-%H%M%S-%q.jpg'
     
-    TYPE_MOTION = 2
-    TYPE_SNAPSHOT = 1
+    TYPE_MOTION = 1
+    TYPE_SNAPSHOT = 2
     
     def __init__(self, cameraid = None, timestamp = None, thumbnail = False, include_image = False):
         self.__logger = logging.getLogger("%s.Image" % __name__)
