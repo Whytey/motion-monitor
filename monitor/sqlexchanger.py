@@ -33,9 +33,9 @@ class SQLWriter():
             cursor.execute("""insert into security (camera, filename, frame, score, file_type, time_stamp, text_event) values(%s, %s, %s, %s, %s, %s, %s)""", 
                            (msg['camera'], 
                             msg['file'], 
-                            msg['filetype'],
                             msg['frame'],
                             msg['score'],
+                            msg['filetype'],
                             msg['timestamp'],
                             msg['event']))
             self.__db.commit()
