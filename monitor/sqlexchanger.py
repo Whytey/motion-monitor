@@ -20,14 +20,8 @@ class SQLWriter():
         self.__db = MySQLdb.connect(host=self.__DB_HOST, db=self.__DB_NAME, user=self.__DB_USER, passwd=self.__DB_PASSWORD)
         self.__logger.info("Initialised")
 
-        
-    def handle_motion_event(self, object, msg):
+    def insert_file_into_db(self, msg):
         try:
-            self.__logger.debug("Handling a message: %s" % msg)
-            if msg["type"] not in ["picture_save"]:
-                # Not a message we log to the DB
-                return True
-            
             cursor = self.__db.cursor()
             
             cursor.execute("""insert into security (camera, filename, frame, score, file_type, time_stamp, text_event) values(%s, %s, %s, %s, %s, %s, %s)""", 
@@ -43,4 +37,13 @@ class SQLWriter():
             self.__logger.exception(e)
             self.__db.rollback()
             raise
+                
+    def handle_motion_event(self, object, msg):
+        self.__logger.debug("Handling a message: %s" % msg)
+        if msg["type"] not in ["picture_save"]:
+            # Not a message we log to the DB
+            return True
+        
+        self.insert_file_into_db(msg)
+
         return True

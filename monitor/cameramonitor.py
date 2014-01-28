@@ -15,7 +15,7 @@ class MotionEvent():
         self.__logger.debug("Initialising with msg: %s" % msg)
 
         self.__starttime = msg["timestamp"]
-        self.__event_id = 0
+        self.__event_id = msg["event"]
         self.__bestimage = None
         self.__bestimage_score = 0
         self.__bestimage_time = None

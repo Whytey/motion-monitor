@@ -6,6 +6,7 @@ Created on 11/08/2013
 
 from datetime import datetime, timedelta
 import logging
+import monitor.sqlexchanger
 import os
 import re
 import sys
@@ -236,12 +237,71 @@ class SnapshotConfig():
 
 class Auditor():
     
-    def __init__(self):
+    def __init__(self, sqlwriter):
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
         self.__logger.info("Initialised")
+        
+        self.__sqlwriter = sqlwriter
 
+        # Extract the following from the config
+        self.target_dir = '/data/motion'
+    
+        # Extract the following from the config
+        self.snapshot_filename = 'snapshots/camera%t/%Y/%m/%d/%H/%M/%S-snapshot.jpg'
+        
+    @staticmethod
+    def __split_all(path):
+        allparts = []
+        while 1:
+            parts = os.path.split(path)
+            if parts[0] == path:  # sentinel for absolute paths
+                allparts.insert(0, parts[0])
+                break
+            elif parts[1] == path: # sentinel for relative paths
+                allparts.insert(0, parts[1])
+                break
+            else:
+                path = parts[0]
+                allparts.insert(0, parts[1])
+        return allparts
+        
+    def __get_camera_from_filepath(self, filepath):
+        camera_folder = self.__split_all(filepath)[3]
+        camera = camera_folder.replace("camera", "")
+        return camera
+    
+    def __get_timestamp_from_filepath(self, filepath):
+        year = self.__split_all(filepath)[4]
+        month = self.__split_all(filepath)[5]
+        day = self.__split_all(filepath)[6]
+        hours = self.__split_all(filepath)[7]
+        mins = self.__split_all(filepath)[8]
+        secs_file = self.__split_all(filepath)[9]
+        secs = secs_file.replace("-snapshot.jpg", "")
+        return "%s%s%s-%s:%s:%s" % (year, month, day, hours, mins, secs)
 
-
+    def insert_orphaned_snapshots(self, object, msg):
+        
+        if not msg["type"] in ["audit"] : return
+        
+        for root, dirs, files in os.walk(self.target_dir, topdown=False):
+            for filename in files:
+                filepath = os.path.join(root, filename)
+                
+                row = {"camera": self.__get_camera_from_filepath(filepath),
+                      "file": filepath,
+                      "frame": 0,
+                      "score": 0,
+                      "filetype": 2,
+                      "timestamp": self.__get_timestamp_from_filepath(filepath),
+                      "event": ""}
+                
+                self.__logger.debug("Inserting the following snapshot file: %s" % row)
+                
+                # Insert the file into the DB
+                self.__sqlwriter.insert_file_into_db(row)
+            
+            
 class Sweeper():
     
     def __init__(self):
@@ -260,6 +320,9 @@ class Sweeper():
     
     
     def sweep(self, object, msg):
+        
+      if not msg["type"] in ["sweep"] : return
+      
       stats = Statistics()
     
       try:

@@ -44,11 +44,16 @@ class MainApp():
                                       self.__zabbixwriter.handle_camera_activity)
         
         
-        # This is the sweeper.
+        # This is the sweeper and auditor.
         self.__sweeper = monitor.filemanager.Sweeper()
+        self.__auditor = monitor.filemanager.Auditor(self.__sqlwriter)
         # SocketListener MANAGEMENT_EVENTs should be handled by the Sweeper.
         self.__socket_listener.connect(self.__socket_listener.MANAGEMENT_EVENT, 
                                        self.__sweeper.sweep)
+        
+        # SocketListener MANAGEMENT_EVENTs should be handled by the Auditor.
+        self.__socket_listener.connect(self.__socket_listener.MANAGEMENT_EVENT, 
+                                       self.__auditor.insert_orphaned_snapshots(object, msg))
         
         self.__json_interface = monitor.jsoninterface.JSONInterface(self.__camera_monitor)
         

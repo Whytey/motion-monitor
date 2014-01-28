@@ -54,7 +54,7 @@ class SocketListener(GObject.GObject):
                            "picture_save"]:
             return self.MOTION_EVENT
         
-        if msg["type"] == "sweep":
+        if msg["type"] in ["sweep", "audit"]:
             return self.MANAGEMENT_EVENT
         
         assert False, "Unknown message type: %s" % msg["type"]
