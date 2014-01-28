@@ -11,6 +11,7 @@ import os
 import re
 import sys
 import time
+import threading
 
 class Statistics():
   def __init__(self):
@@ -235,20 +236,22 @@ class SnapshotConfig():
 
     return regexes
 
-class Auditor():
+class AuditorThread(threading.Thread):
     
     def __init__(self, sqlwriter):
+        threading.Thread.__init__(self)
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
         self.__logger.info("Initialised")
         
         self.__sqlwriter = sqlwriter
-
+        
         # Extract the following from the config
         self.target_dir = '/data/motion'
     
         # Extract the following from the config
         self.snapshot_filename = 'snapshots/camera%t/%Y/%m/%d/%H/%M/%S-snapshot.jpg'
         
+
     @staticmethod
     def __split_all(path):
         allparts = []
@@ -280,10 +283,7 @@ class Auditor():
         secs = secs_file.replace("-snapshot.jpg", "")
         return "%s%s%s%s%s%s" % (year, month, day, hours, mins, secs)
 
-    def insert_orphaned_snapshots(self, object, msg):
-        
-        if not msg["type"] in ["audit"] : return
-        
+    def run(self):
         for root, dirs, files in os.walk(self.target_dir, topdown=False):
             for filename in files:
                 filepath = os.path.join(root, filename)
@@ -300,6 +300,27 @@ class Auditor():
                 
                 # Insert the file into the DB
                 self.__sqlwriter.insert_file_into_db(row)
+
+class Auditor():
+    
+    def __init__(self, sqlwriter):
+        self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
+        self.__logger.info("Initialised")
+        self.__sqlwriter = sqlwriter
+        self.__thread = None
+
+
+    def insert_orphaned_snapshots(self, object, msg):
+        
+        if not msg["type"] in ["audit"] : return
+        
+        if not self.__thread or not self.__thread.isAlive():
+            # Create a thread and start it
+            self.__logger.info("Creating a new AuditorThread and starting it")
+            self.__thread = AuditorThread(self.__sqlwriter)
+            self.__thread.start()
+        else:
+            self.__logger.warning("AuditorThread is already running")
             
             
 class Sweeper():
