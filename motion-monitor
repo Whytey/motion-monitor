@@ -53,7 +53,7 @@ class MainApp():
         
         # SocketListener MANAGEMENT_EVENTs should be handled by the Auditor.
         self.__socket_listener.connect(self.__socket_listener.MANAGEMENT_EVENT, 
-                                       self.__auditor.insert_orphaned_snapshots(object, msg))
+                                       self.__auditor.insert_orphaned_snapshots)
         
         self.__json_interface = monitor.jsoninterface.JSONInterface(self.__camera_monitor)
         
