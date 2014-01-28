@@ -278,7 +278,7 @@ class Auditor():
         mins = self.__split_all(filepath)[9]
         secs_file = self.__split_all(filepath)[10]
         secs = secs_file.replace("-snapshot.jpg", "")
-        return "%s%s%s-%s:%s:%s" % (year, month, day, hours, mins, secs)
+        return "%s%s%s%s%s%s" % (year, month, day, hours, mins, secs)
 
     def insert_orphaned_snapshots(self, object, msg):
         
