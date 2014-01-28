@@ -24,7 +24,8 @@ class SQLWriter():
         try:
             cursor = self.__db.cursor()
             
-            cursor.execute("""insert into security (camera, filename, frame, score, file_type, time_stamp, text_event) values(%s, %s, %s, %s, %s, %s, %s)""", 
+            # Insert the data to the DB.  Ifgnore any duplicates (as determined by the filename)
+            cursor.execute("""insert ignore into security (camera, filename, frame, score, file_type, time_stamp, text_event) values(%s, %s, %s, %s, %s, %s, %s)""", 
                            (msg['camera'], 
                             msg['file'], 
                             msg['frame'],
