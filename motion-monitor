@@ -29,7 +29,7 @@ class MainApp():
         self.__socket_listener = monitor.socketlistener.SocketListener()
         self.__camera_monitor = monitor.cameramonitor.CameraMonitor()
         self.__zabbixwriter = monitor.zabbixwriter.ZabbixWriter()
-        self.__sqlwriter = monitor.sqlexchanger.SQLWriter()
+        self.__live_sqlwriter = monitor.sqlexchanger.SQLWriter(monitor.sqlexchanger.DB().getConnection())
         
         # SocketListener MOTION_EVENTs should be handled by the CameraMonitor.
         self.__socket_listener.connect(self.__socket_listener.MOTION_EVENT, 
@@ -37,7 +37,7 @@ class MainApp():
         
         # SocketListener MOTION_EVENTs should be handled by the SQLWriter.
         self.__socket_listener.connect(self.__socket_listener.MOTION_EVENT, 
-                                       self.__sqlwriter.handle_motion_event)
+                                       self.__live_sqlwriter.handle_motion_event)
         
         # CameraMonitor ACTIVITY_EVENTs are handled by the ZabbixWriter.
         self.__camera_monitor.connect(self.__camera_monitor.ACTIVITY_EVENT, 
@@ -46,7 +46,8 @@ class MainApp():
         
         # This is the sweeper and auditor.
         self.__sweeper = monitor.filemanager.Sweeper()
-        self.__auditor = monitor.filemanager.Auditor(self.__sqlwriter)
+        self.__auditor_sqlwriter = monitor.sqlexchanger.SQLWriter(monitor.sqlexchanger.DB().getConnection())
+        self.__auditor = monitor.filemanager.Auditor(self.__auditor_sqlwriter)
         # SocketListener MANAGEMENT_EVENTs should be handled by the Sweeper.
         self.__socket_listener.connect(self.__socket_listener.MANAGEMENT_EVENT, 
                                        self.__sweeper.sweep)

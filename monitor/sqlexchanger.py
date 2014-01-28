@@ -6,23 +6,32 @@ Created on 22/01/2014
 import logging
 import MySQLdb
 
-class SQLWriter():
-    
+class DB():
     __DB_NAME = "motion"
     __DB_HOST = "localhost"
     __DB_USER = "motion"
     __DB_PASSWORD = "motion"
 
-    
     def __init__(self):
         
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
-        self.__db = MySQLdb.connect(host=self.__DB_HOST, db=self.__DB_NAME, user=self.__DB_USER, passwd=self.__DB_PASSWORD)
         self.__logger.info("Initialised")
+        
+    def getConnection(self):
+        return MySQLdb.connect(host=self.__DB_HOST, db=self.__DB_NAME, user=self.__DB_USER, passwd=self.__DB_PASSWORD)
+
+
+class SQLWriter():
+    
+    def __init__(self, connection):
+        
+        self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
+        self.__logger.info("Initialised")
+        self.__connection = connection
 
     def insert_file_into_db(self, msg):
         try:
-            cursor = self.__db.cursor()
+            cursor = self.__connection.cursor()
             
             # Insert the data to the DB.  Ifgnore any duplicates (as determined by the filename)
             cursor.execute("""insert ignore into security (camera, filename, frame, score, file_type, time_stamp, text_event) values(%s, %s, %s, %s, %s, %s, %s)""", 
@@ -33,10 +42,10 @@ class SQLWriter():
                             msg['filetype'],
                             msg['timestamp'],
                             msg['event']))
-            self.__db.commit()
+            self.__connection.commit()
         except Exception as e:
             self.__logger.exception(e)
-            self.__db.rollback()
+            self.__connection.rollback()
             raise
                 
     def handle_motion_event(self, object, msg):
