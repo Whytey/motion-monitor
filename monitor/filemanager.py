@@ -113,7 +113,7 @@ class SweeperThread(threading.Thread):
         self.__sqlwriter = sqlwriter
         
     @staticmethod
-    def __delete_path(self, path):
+    def __delete_path(path):
         if os.path.isdir(path):
             os.rmdir(path)
         else:
