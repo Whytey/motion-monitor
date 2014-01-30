@@ -45,7 +45,8 @@ class MainApp():
         
         
         # This is the sweeper and auditor.
-        self.__sweeper = monitor.filemanager.Sweeper()
+        self.__sweeoer_sqlreader = monitor.sqlexchanger.SQLReader(monitor.sqlexchanger.DB().getConnection())
+        self.__sweeper = monitor.filemanager.Sweeper(self.__sweeoer_sqlreaderS)
         self.__auditor_sqlwriter = monitor.sqlexchanger.SQLWriter(monitor.sqlexchanger.DB().getConnection())
         self.__auditor = monitor.filemanager.Auditor(self.__auditor_sqlwriter)
         # SocketListener MANAGEMENT_EVENTs should be handled by the Sweeper.
