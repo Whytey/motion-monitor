@@ -109,9 +109,7 @@ class SweeperThread(threading.Thread):
         self.__sqlwriter = sqlwriter
         
     @staticmethod
-    def __delete_path(self, path, test):
-        if test:
-            return
+    def __delete_path(self, path):
         if os.path.isdir(path):
             os.rmdir(path)
         else:
@@ -120,9 +118,11 @@ class SweeperThread(threading.Thread):
     def run(self):
         stale_files = self.__sqlwriter.get_stale_files()
         
+        self.__logger.info("Have %s files to delete" % len(stale_files))
+        
         for filepath in stale_files:
             self.__logger.debug("Deleting stale file: %s" % filepath)
-            self.__delete_path(filepath, False)
+            self.__delete_path(filepath)
             self.__sqlwriter.remove_file_from_db(filepath)
     
 class Sweeper():

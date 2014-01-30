@@ -53,7 +53,7 @@ class SQLWriter():
             cursor = self.__connection.cursor()
             
             # Insert the data to the DB.  Ifgnore any duplicates (as determined by the filename)
-            cursor.execute("""delete from security where filename = %s""", filepath) 
+            cursor.execute("""delete from security where filename = '%s'""", filepath) 
             self.__connection.commit()
         except Exception as e:
             self.__logger.exception(e)
