@@ -39,7 +39,7 @@ class SQLReader():
                                     file_type = 2 and
                                     ((time_stamp < subdate(now(), interval 7 day) and minute(time_stamp) != 0) or
                                     (time_stamp < subdate(now(), interval 4 week) and (hour(time_stamp) not in (6, 12, 18) or minute(time_stamp) != 0)) or
-                                    (time_stamp < subdate(now(), interval 3 month) and (hour(time_stamp) != 12 or minute(time_stamp) != 0)));""")
+                                    (time_stamp < subdate(now(), interval 3 month) and (hour(time_stamp) != 12 or minute(time_stamp) != 0)))""")
             stale_files = cursor.fetchall()
             return stale_files
         except Exception as e:
