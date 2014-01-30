@@ -30,6 +30,7 @@ class SQLWriter():
         self.__connection = connection
 
     def insert_file_into_db(self, msg):
+        self.__logger.debug("Inserting data to the DB: %s" % msg)
         try:
             cursor = self.__connection.cursor()
             
@@ -49,6 +50,7 @@ class SQLWriter():
             raise
         
     def remove_file_from_db(self, filepath):
+        self.__logger.debug("Deleting file from the DB: %s" % filepath)
         try:
             cursor = self.__connection.cursor()
             
@@ -61,6 +63,7 @@ class SQLWriter():
             raise
         
     def get_stale_files(self):
+        self.__logger.debug("Listing stale files in the DB")
         try:
             cursor = self.__connection.cursor()
             

@@ -57,26 +57,30 @@ class AuditorThread(threading.Thread):
         return "%s%s%s%s%s%s" % (year, month, day, hours, mins, secs)
 
     def run(self):
-        for root, dirs, files in os.walk(self.target_dir, topdown=False):
-            
-            # Hack! Only worry about snapshot files.
-            if not root.startswith('/data/motion/snapshots'): continue
+        try:
+            for root, dirs, files in os.walk(self.target_dir, topdown=False):
                 
-            for filename in files:
-                filepath = os.path.join(root, filename)
-                
-                row = {"camera": self.__get_camera_from_filepath(filepath),
-                      "file": filepath,
-                      "frame": 0,
-                      "score": 0,
-                      "filetype": 2,
-                      "timestamp": self.__get_timestamp_from_filepath(filepath),
-                      "event": ""}
-                
-                self.__logger.debug("Inserting the following snapshot file: %s" % row)
-                
-                # Insert the file into the DB
-                self.__sqlwriter.insert_file_into_db(row)
+                # Hack! Only worry about snapshot files.
+                if not root.startswith('/data/motion/snapshots'): continue
+                    
+                for filename in files:
+                    filepath = os.path.join(root, filename)
+                    
+                    row = {"camera": self.__get_camera_from_filepath(filepath),
+                          "file": filepath,
+                          "frame": 0,
+                          "score": 0,
+                          "filetype": 2,
+                          "timestamp": self.__get_timestamp_from_filepath(filepath),
+                          "event": ""}
+                    
+                    self.__logger.debug("Inserting the following snapshot file: %s" % row)
+                    
+                    # Insert the file into the DB
+                    self.__sqlwriter.insert_file_into_db(row)
+        except Exception as e:
+            self.__logger.exception(e)
+            raise
 
 class Auditor():
     
@@ -116,14 +120,18 @@ class SweeperThread(threading.Thread):
             os.remove(path)
 
     def run(self):
-        stale_files = self.__sqlwriter.get_stale_files()
-        
-        self.__logger.info("Have %s files to delete" % len(stale_files))
-        
-        for filepath in stale_files:
-            self.__logger.debug("Deleting stale file: %s" % filepath)
-            self.__delete_path(filepath)
-            self.__sqlwriter.remove_file_from_db(filepath)
+        try:
+            stale_files = self.__sqlwriter.get_stale_files()
+            
+            self.__logger.info("Have %s files to delete" % len(stale_files))
+            
+            for filepath in stale_files:
+                self.__logger.debug("Deleting stale file: %s" % filepath)
+                self.__delete_path(filepath)
+                self.__sqlwriter.remove_file_from_db(filepath)
+        except Exception as e:
+            self.__logger.exception(e)
+            raise        
     
 class Sweeper():
     
