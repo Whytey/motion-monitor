@@ -101,12 +101,12 @@ class Auditor():
             
 class SweeperThread(threading.Thread):
     
-    def __init__(self, sqlreader):
+    def __init__(self, sqlwriter):
         threading.Thread.__init__(self)
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
         self.__logger.info("Initialised")
         
-        self.__sqlreader = sqlreader
+        self.__sqlwriter = sqlwriter
         
     @staticmethod
     def __delete_path(self, path, test):
@@ -123,14 +123,14 @@ class SweeperThread(threading.Thread):
         for filepath in stale_files:
             self.__logger.debug("Deleting stale file: %s" % filepath)
             self.__delete_path(filepath, False)
-    
+            self.__sqlwriter.remove_file_from_db(filepath)
     
 class Sweeper():
     
-    def __init__(self, sqlreader):
+    def __init__(self, sqlwriter):
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
         self.__logger.info("Initialised")
-        self.__sqlreader = sqlreader
+        self.__sqlwriter = sqlwriter
         self.__thread = None
 
     def sweep(self, object, msg):
@@ -140,7 +140,7 @@ class Sweeper():
         if not self.__thread or not self.__thread.isAlive():
             # Create a thread and start it
             self.__logger.info("Creating a new SweeperThread and starting it")
-            self.__thread = SweeperThread(self.__sqlreader)
+            self.__thread = SweeperThread(self.__sqlwriter)
             self.__thread.start()
         else:
             self.__logger.warning("SweeperThread is already running")

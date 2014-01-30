@@ -45,8 +45,8 @@ class MainApp():
         
         
         # This is the sweeper and auditor.
-        self.__sweeoer_sqlreader = monitor.sqlexchanger.SQLReader(monitor.sqlexchanger.DB().getConnection())
-        self.__sweeper = monitor.filemanager.Sweeper(self.__sweeoer_sqlreaderS)
+        self.__sweeper_sqlwriter = monitor.sqlexchanger.SQLWriter(monitor.sqlexchanger.DB().getConnection())
+        self.__sweeper = monitor.filemanager.Sweeper(self.__sweeper_sqlwriter)
         self.__auditor_sqlwriter = monitor.sqlexchanger.SQLWriter(monitor.sqlexchanger.DB().getConnection())
         self.__auditor = monitor.filemanager.Auditor(self.__auditor_sqlwriter)
         # SocketListener MANAGEMENT_EVENTs should be handled by the Sweeper.
@@ -61,8 +61,6 @@ class MainApp():
         
         self.__logger.info("Initialised...")
 
-        
-        
         
     def __setup_logger(self):
         log_filename = 'motion-monitor.log'
