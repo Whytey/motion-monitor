@@ -118,7 +118,7 @@ class SweeperThread(threading.Thread):
             os.remove(path)
 
     def run(self):
-        stale_files = self.__sqlreader.get_stale_files()
+        stale_files = self.__sqlwriter.get_stale_files()
         
         for filepath in stale_files:
             self.__logger.debug("Deleting stale file: %s" % filepath)
