@@ -126,6 +126,7 @@ class SweeperThread(threading.Thread):
             self.__logger.info("Have %s files to delete" % len(stale_files))
             
             for filepath in stale_files:
+                filepath = filepath[0]
                 self.__logger.debug("Deleting stale file: %s" % filepath)
                 self.__delete_path(filepath)
                 self.__sqlwriter.remove_file_from_db(filepath)
