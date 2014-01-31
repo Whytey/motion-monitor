@@ -139,7 +139,7 @@ class SweeperThread(threading.Thread):
     
 class Sweeper():
     
-    def __init__(self, sqlwriter):
+    def __init__(self):
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
         self.__logger.info("Initialised")
         self.__sqlwriter = monitor.sqlexchanger.SQLWriter(monitor.sqlexchanger.DB().getConnection())
