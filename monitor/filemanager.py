@@ -5,6 +5,7 @@ Created on 11/08/2013
 '''
 
 import logging
+import monitor.sqlexchanger
 import os
 import threading
 
@@ -84,10 +85,10 @@ class AuditorThread(threading.Thread):
 
 class Auditor():
     
-    def __init__(self, sqlwriter):
+    def __init__(self):
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
         self.__logger.info("Initialised")
-        self.__sqlwriter = sqlwriter
+        self.__sqlwriter = monitor.sqlexchanger.SQLWriter(monitor.sqlexchanger.DB().getConnection())
         self.__thread = None
 
 
@@ -127,8 +128,10 @@ class SweeperThread(threading.Thread):
             
             for filepath in stale_files:
                 filepath = filepath[0]
-                self.__logger.debug("Deleting stale file: %s" % filepath)
-                self.__delete_path(filepath)
+                if os.path.exists(filepath):
+                    self.__logger.debug("Deleting stale file: %s" % filepath)
+                    self.__delete_path(filepath)
+                self.__logger.debug("Deleting stale DB entry: %s" % filepath)
                 self.__sqlwriter.remove_file_from_db(filepath)
         except Exception as e:
             self.__logger.exception(e)
@@ -139,7 +142,7 @@ class Sweeper():
     def __init__(self, sqlwriter):
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
         self.__logger.info("Initialised")
-        self.__sqlwriter = sqlwriter
+        self.__sqlwriter = monitor.sqlexchanger.SQLWriter(monitor.sqlexchanger.DB().getConnection())
         self.__thread = None
 
     def sweep(self, object, msg):
