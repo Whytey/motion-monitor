@@ -56,7 +56,7 @@ class SQLWriter():
             
             # If the list contains filepaths, remove them from the DB
             if filepaths:
-                query =  "delete from security where filename in (%s)"  % ','.join(['?'] * len(filepaths))
+                query =  "delete from security where filename in (%s)"  % ",".join(["%s"] * len(filepaths))
                 self.__logger.debug("Ready to execute: %s" % query)
                 cursor.execute(query, filepaths) 
                 self.__connection.commit()

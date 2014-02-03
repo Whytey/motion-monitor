@@ -134,7 +134,7 @@ class SweeperThread(threading.Thread):
                     self.__delete_path(filepath)
                     deletedFiles.append(filepath)
                     
-                if len(deletedFiles) > 10:
+                if len(deletedFiles) > 50:
                     self.__logger.debug("Deleting stale DB entries: %s" % deletedFiles)
                     self.__sqlwriter.remove_file_from_db(deletedFiles)
                     deletedFiles = []
