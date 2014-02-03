@@ -49,14 +49,17 @@ class SQLWriter():
             self.__connection.rollback()
             raise
         
-    def remove_file_from_db(self, filepath):
-        self.__logger.debug("Deleting file from the DB: %s" % filepath)
+    def remove_file_from_db(self, filepaths):
+        self.__logger.debug("Deleting files from the DB: %s" % filepaths)
         try:
             cursor = self.__connection.cursor()
             
-            # Insert the data to the DB.  Ifgnore any duplicates (as determined by the filename)
-            cursor.execute("""delete from security where filename = '%s'""", (filepath)) 
-            self.__connection.commit()
+            # If the list contains filepaths, remove them from the DB
+            if filepaths:
+                query =  "delete from security where filename in (%s)"  % ','.join(['?'] * len(filepaths))
+                self.__logger.debug("Ready to execute: %s" % query)
+                cursor.execute(query, filepaths) 
+                self.__connection.commit()
         except Exception as e:
             self.__logger.exception(e)
             self.__connection.rollback()

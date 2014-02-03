@@ -125,14 +125,24 @@ class SweeperThread(threading.Thread):
             stale_files = self.__sqlwriter.get_stale_files()
             
             self.__logger.info("Have %s files to delete" % len(stale_files))
-            
-            for filepath in stale_files:
-                filepath = filepath[0]
+
+            # Get the filepath from the returned rowset tuple
+            deletedFiles = []            
+            for (filepath,) in stale_files:
                 if os.path.exists(filepath):
                     self.__logger.debug("Deleting stale file: %s" % filepath)
                     self.__delete_path(filepath)
-                self.__logger.debug("Deleting stale DB entry: %s" % filepath)
-                self.__sqlwriter.remove_file_from_db(filepath)
+                    deletedFiles.append(filepath)
+                    
+                if len(deletedFiles) > 10:
+                    self.__logger.debug("Deleting stale DB entries: %s" % deletedFiles)
+                    self.__sqlwriter.remove_file_from_db(deletedFiles)
+                    deletedFiles = []
+                    
+            # Cleanup, incase these were missed in the loop
+            self.__logger.debug("Deleting remaining stale DB entries: %s" % deletedFiles)
+            self.__sqlwriter.remove_file_from_db(deletedFiles)
+
         except Exception as e:
             self.__logger.exception(e)
             raise        
