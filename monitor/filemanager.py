@@ -59,6 +59,7 @@ class AuditorThread(threading.Thread):
 
     def run(self):
         try:
+            insertedFiles = []
             for root, dirs, files in os.walk(self.target_dir, topdown=False):
                 
                 # Hack! Only worry about snapshot files.
@@ -67,18 +68,25 @@ class AuditorThread(threading.Thread):
                 for filename in files:
                     filepath = os.path.join(root, filename)
                     
-                    row = {"camera": self.__get_camera_from_filepath(filepath),
-                          "file": filepath,
-                          "frame": 0,
-                          "score": 0,
-                          "filetype": 2,
-                          "timestamp": self.__get_timestamp_from_filepath(filepath),
-                          "event": ""}
+                    row = (self.__get_camera_from_filepath(filepath),
+                           filepath,
+                           0,
+                           0,
+                           2,
+                           self.__get_timestamp_from_filepath(filepath),
+                           "")
                     
                     self.__logger.debug("Inserting the following snapshot file: %s" % row)
+                    insertedFiles.append(row)
                     
-                    # Insert the file into the DB
-                    self.__sqlwriter.insert_file_into_db(row)
+                    if len(insertedFiles) > 50:
+                        self.__logger.debug("Inserting DB entries: %s" % insertedFiles)
+                        self.__sqlwriter.insert_files_into_db(insertedFiles)
+                        insertedFiles = []
+                    
+            # Insert the file into the DB
+            self.__logger.debug("Inserting remaining DB entries: %s" % insertedFiles)
+            self.__sqlwriter.insert_files_into_db(insertedFiles)
         except Exception as e:
             self.__logger.exception(e)
             raise
@@ -88,7 +96,6 @@ class Auditor():
     def __init__(self):
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
         self.__logger.info("Initialised")
-        self.__sqlwriter = monitor.sqlexchanger.SQLWriter(monitor.sqlexchanger.DB().getConnection())
         self.__thread = None
 
 
@@ -99,7 +106,8 @@ class Auditor():
         if not self.__thread or not self.__thread.isAlive():
             # Create a thread and start it
             self.__logger.info("Creating a new AuditorThread and starting it")
-            self.__thread = AuditorThread(self.__sqlwriter)
+            sqlwriter = monitor.sqlexchanger.SQLWriter(monitor.sqlexchanger.DB().getConnection())
+            self.__thread = AuditorThread(sqlwriter)
             self.__thread.start()
         else:
             self.__logger.warning("AuditorThread is already running")
@@ -136,12 +144,12 @@ class SweeperThread(threading.Thread):
                     
                 if len(deletedFiles) > 50:
                     self.__logger.debug("Deleting stale DB entries: %s" % deletedFiles)
-                    self.__sqlwriter.remove_file_from_db(deletedFiles)
+                    self.__sqlwriter.remove_files_from_db(deletedFiles)
                     deletedFiles = []
                     
-            # Cleanup, incase these were missed in the loop
+            # Cleanup, in case these were missed in the loop
             self.__logger.debug("Deleting remaining stale DB entries: %s" % deletedFiles)
-            self.__sqlwriter.remove_file_from_db(deletedFiles)
+            self.__sqlwriter.remove_files_from_db(deletedFiles)
 
         except Exception as e:
             self.__logger.exception(e)
@@ -152,7 +160,6 @@ class Sweeper():
     def __init__(self):
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
         self.__logger.info("Initialised")
-        self.__sqlwriter = monitor.sqlexchanger.SQLWriter(monitor.sqlexchanger.DB().getConnection())
         self.__thread = None
 
     def sweep(self, object, msg):
@@ -162,7 +169,8 @@ class Sweeper():
         if not self.__thread or not self.__thread.isAlive():
             # Create a thread and start it
             self.__logger.info("Creating a new SweeperThread and starting it")
-            self.__thread = SweeperThread(self.__sqlwriter)
+            sqlwriter = monitor.sqlexchanger.SQLWriter(monitor.sqlexchanger.DB().getConnection())
+            self.__thread = SweeperThread(sqlwriter)
             self.__thread.start()
         else:
             self.__logger.warning("SweeperThread is already running")

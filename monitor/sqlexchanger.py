@@ -29,36 +29,30 @@ class SQLWriter():
         self.__logger.info("Initialised")
         self.__connection = connection
 
-    def insert_file_into_db(self, msg):
-        self.__logger.debug("Inserting data to the DB: %s" % msg)
+    def insert_files_into_db(self, files):
+        self.__logger.debug("Inserting data to the DB: %s" % files)
         try:
             cursor = self.__connection.cursor()
             
             # Insert the data to the DB.  Ifgnore any duplicates (as determined by the filename)
-            cursor.execute("""insert ignore into security (camera, filename, frame, score, file_type, time_stamp, text_event) values(%s, %s, %s, %s, %s, %s, %s)""", 
-                           (msg['camera'], 
-                            msg['file'], 
-                            msg['frame'],
-                            msg['score'],
-                            msg['filetype'],
-                            msg['timestamp'],
-                            msg['event']))
+            query = "insert ignore into security (camera, filename, frame, score, file_type, time_stamp, text_event) values (%s, %s, %s, %s, %s, %s, %s)"
+            cursor.executemany(query, files)
             self.__connection.commit()
         except Exception as e:
             self.__logger.exception(e)
             self.__connection.rollback()
             raise
         
-    def remove_file_from_db(self, filepaths):
+    def remove_files_from_db(self, filepaths):
         self.__logger.debug("Deleting files from the DB: %s" % filepaths)
         try:
             cursor = self.__connection.cursor()
             
             # If the list contains filepaths, remove them from the DB
             if filepaths:
-                query =  "delete from security where filename in (%s)"  % ",".join(["%s"] * len(filepaths))
+                query =  "delete from security where filename in (%s)"
                 self.__logger.debug("Ready to execute: %s" % query)
-                cursor.execute(query, filepaths) 
+                cursor.executemany(query, filepaths) 
                 self.__connection.commit()
         except Exception as e:
             self.__logger.exception(e)
@@ -90,7 +84,14 @@ class SQLWriter():
         if msg["type"] not in ["picture_save"]:
             # Not a message we log to the DB
             return True
+        files = [(msg['camera'],
+                  msg['file'], 
+                  msg['frame'],
+                  msg['score'],
+                  msg['filetype'],
+                  msg['timestamp'],
+                  msg['event'])]
         
-        self.insert_file_into_db(msg)
+        self.insert_file_into_db(files)
 
         return True
