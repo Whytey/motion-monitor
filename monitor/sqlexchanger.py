@@ -59,8 +59,8 @@ class SQLWriter():
             self.__connection.rollback()
             raise
         
-    def get_stale_files(self):
-        self.__logger.debug("Listing stale files in the DB")
+    def get_stale_snapshots(self):
+        self.__logger.debug("Listing stale snapshots in the DB")
         try:
             cursor = self.__connection.cursor()
             
@@ -72,26 +72,52 @@ class SQLWriter():
                                     ((time_stamp < subdate(now(), interval 7 day) and minute(time_stamp) != 0) or
                                     (time_stamp < subdate(now(), interval 4 week) and (hour(time_stamp) not in (6, 12, 18) or minute(time_stamp) != 0)) or
                                     (time_stamp < subdate(now(), interval 3 month) and (hour(time_stamp) != 12 or minute(time_stamp) != 0)))""")
-            stale_files = cursor.fetchall()
-            return stale_files
+            
+            stale_snapshots = cursor.fetchall()
+            return stale_snapshots
         except Exception as e:
             self.__logger.exception(e)
             self.__connection.rollback()
             raise
+        
+    def get_stale_motion(self):
+        self.__logger.debug("Listing stale motion files in the DB")
+        try:
+            cursor = self.__connection.cursor()
+            
+            # Select just the snapshot filenames that are stale
+            cursor.execute("""select filename
+                                from security
+                                where
+                                    file_type = 1 and
+                                    time_stamp < subdate(now(), interval 7 day)""")
+            
+            stale_motion = cursor.fetchall()
+            return stale_motion
+        except Exception as e:
+            self.__logger.exception(e)
+            self.__connection.rollback()
+            raise
+
                 
     def handle_motion_event(self, object, msg):
-        self.__logger.debug("Handling a message: %s" % msg)
-        if msg["type"] not in ["picture_save"]:
-            # Not a message we log to the DB
-            return True
-        files = [(msg['camera'],
-                  msg['file'], 
-                  msg['frame'],
-                  msg['score'],
-                  msg['filetype'],
-                  msg['timestamp'],
-                  msg['event'])]
-        
-        self.insert_file_into_db(files)
+        try:
+            self.__logger.debug("Handling a message: %s" % msg)
+            if msg["type"] not in ["picture_save", "movie_start", "movie_end"]:
+                # Not a message we log to the DB
+                return True
+            
+            files = [(msg['camera'],
+                      msg['file'], 
+                      msg['frame'],
+                      msg['score'],
+                      msg['filetype'],
+                      msg['timestamp'],
+                      msg['event'])]
+            
+            self.insert_files_into_db(files)
 
+        except Exception as e:
+            self.__logger.exception(e)
+            raise
         return True

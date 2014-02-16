@@ -76,7 +76,7 @@ class AuditorThread(threading.Thread):
                            self.__get_timestamp_from_filepath(filepath),
                            "")
                     
-                    self.__logger.debug("Inserting the following snapshot file: %s" % row)
+                    self.__logger.debug("Inserting the following snapshot file: %s" % str(row))
                     insertedFiles.append(row)
                     
                     if len(insertedFiles) > 50:
@@ -120,27 +120,45 @@ class SweeperThread(threading.Thread):
         self.__logger.info("Initialised")
         
         self.__sqlwriter = sqlwriter
+
+        # Extract the following from the config
+        self.target_dir = '/data/motion'
+
         
     @staticmethod
     def __delete_path(path):
-        if os.path.isdir(path):
+        if os.path.exists(path):
+            if os.path.isdir(path):
+                os.rmdir(path)
+            else:
+                os.remove(path)
+    
+    @staticmethod
+    def __delete_empty_dir(path, delParents=False):
+        if os.path.exists(path) and os.path.isdir(path) and not os.listdir(path):
             os.rmdir(path)
-        else:
-            os.remove(path)
+            if delParents:
+                parentDir = os.path.split(path)[0]
+                if parentDir.startswith('/data/motion'):
+                    SweeperThread.__delete_empty_dir(os.path.split(path)[0])
 
     def run(self):
         try:
-            stale_files = self.__sqlwriter.get_stale_files()
+            stale_files = []
+            stale_files.append(self.__sqlwriter.get_stale_snapshots())
+            stale_files.append(self.__sqlwriter.get_stale_motion())
             
             self.__logger.info("Have %s files to delete" % len(stale_files))
 
             # Get the filepath from the returned rowset tuple
-            deletedFiles = []            
+            deletedFiles = []
+            deletedPaths = set()
             for (filepath,) in stale_files:
                 if os.path.exists(filepath):
                     self.__logger.debug("Deleting stale file: %s" % filepath)
-                    self.__delete_path(filepath)
+                    SweeperThread.__delete_path(filepath)
                     deletedFiles.append(filepath)
+                    deletedPaths.add(os.path.dirname(filepath))
                     
                 if len(deletedFiles) > 50:
                     self.__logger.debug("Deleting stale DB entries: %s" % deletedFiles)
@@ -150,6 +168,10 @@ class SweeperThread(threading.Thread):
             # Cleanup, in case these were missed in the loop
             self.__logger.debug("Deleting remaining stale DB entries: %s" % deletedFiles)
             self.__sqlwriter.remove_files_from_db(deletedFiles)
+            
+            for path in deletedPaths:
+                self.__logger.debug("Deleting empty paths now")
+                SweeperThread.__delete_empty_dir(path, True)
 
         except Exception as e:
             self.__logger.exception(e)
