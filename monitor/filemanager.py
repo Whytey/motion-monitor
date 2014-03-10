@@ -9,6 +9,19 @@ import monitor.sqlexchanger
 import os
 import threading
 
+def delete_path(path):
+    if os.path.exists(path):
+        if os.path.isdir(path):
+            os.rmdir(path)
+        else:
+            os.remove(path)
+    
+def delete_dir_if_empty(path, delParents=False):
+    if os.path.exists(path) and os.path.isdir(path) and not os.listdir(path):
+        os.rmdir(path)
+        if delParents:
+            delete_dir_if_empty(os.path.split(path)[0], delParents)
+
 
 class AuditorThread(threading.Thread):
     
@@ -60,11 +73,13 @@ class AuditorThread(threading.Thread):
     def run(self):
         try:
             insertedFiles = []
-            for root, dirs, files in os.walk(self.target_dir, topdown=False):
+            for root, dirs, files in os.walk(self.target_dir, topdown=True):
                 
                 # Hack! Only worry about snapshot files.
                 if not root.startswith('/data/motion/snapshots'): continue
-                    
+                
+                delete_dir_if_empty(root, True)
+                
                 for filename in files:
                     filepath = os.path.join(root, filename)
                     
@@ -125,28 +140,11 @@ class SweeperThread(threading.Thread):
         self.target_dir = '/data/motion'
 
         
-    @staticmethod
-    def __delete_path(path):
-        if os.path.exists(path):
-            if os.path.isdir(path):
-                os.rmdir(path)
-            else:
-                os.remove(path)
-    
-    @staticmethod
-    def __delete_empty_dir(path, delParents=False):
-        if os.path.exists(path) and os.path.isdir(path) and not os.listdir(path):
-            os.rmdir(path)
-            if delParents:
-                parentDir = os.path.split(path)[0]
-                if parentDir.startswith('/data/motion'):
-                    SweeperThread.__delete_empty_dir(os.path.split(path)[0])
-
     def run(self):
         try:
             stale_files = []
-            stale_files.append(self.__sqlwriter.get_stale_snapshots())
-            stale_files.append(self.__sqlwriter.get_stale_motion())
+            stale_files.extend(self.__sqlwriter.get_stale_snapshots())
+            stale_files.extend(self.__sqlwriter.get_stale_motion())
             
             self.__logger.info("Have %s files to delete" % len(stale_files))
 
@@ -156,7 +154,7 @@ class SweeperThread(threading.Thread):
             for (filepath,) in stale_files:
                 if os.path.exists(filepath):
                     self.__logger.debug("Deleting stale file: %s" % filepath)
-                    SweeperThread.__delete_path(filepath)
+                    delete_path(filepath)
                     deletedFiles.append(filepath)
                     deletedPaths.add(os.path.dirname(filepath))
                     
@@ -171,7 +169,7 @@ class SweeperThread(threading.Thread):
             
             for path in deletedPaths:
                 self.__logger.debug("Deleting empty paths now")
-                SweeperThread.__delete_empty_dir(path, True)
+                delete_dir_if_empty(path, True)
 
         except Exception as e:
             self.__logger.exception(e)
