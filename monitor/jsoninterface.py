@@ -115,6 +115,7 @@ class MotionImage(Image):
         self._event = event
         self._path = Image._CONFIG_target_dir + Image._CONFIG_motion_filename
         self._path = self._path.replace("%v", self._event)
+        self._path = self._path.replace("%q", "00")
         self._path = Image._decode_image_path(self._path, self._cameraid, self._timestamp)
         self.__logger.debug("Getting JSON")
 

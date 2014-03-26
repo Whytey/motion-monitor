@@ -42,7 +42,7 @@ function CameraSummary(tagId) {
 	    	snapshotElement.setAttribute("id", snapshotElementId);
 	    	snapshotCell.appendChild(snapshotElement);
 
-	    	var snapshot = new JPEGImage(snapshotElementId, "2", camera.id, camera.last_snapshot_timestamp, "true");
+	    	var snapshot = new JPEGImage(snapshotElementId, "2", camera.id, camera.last_snapshot_timestamp, null, "true");
 	    	var io = new IO(snapshot, null);
 	    	io.getData();
 
@@ -54,7 +54,7 @@ function CameraSummary(tagId) {
 	    	motionCell.appendChild(motionElement);
 	    	
 	    	if (camera.recent_motion[0] != null) {
-		    	var motion = new JPEGImage(motionElementId, "1", camera.id, camera.recent_motion[0].best_image_time, "true");
+		    	var motion = new JPEGImage(motionElementId, "1", camera.id, camera.recent_motion[0].best_image_time, camera.recent_motion[0].event_id, "true");
 		    	var io = new IO(motion, null);
 		    	io.getData();
 	    	}

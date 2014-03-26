@@ -1,8 +1,9 @@
-function JPEGImage(tagId, type, cameraId, timestamp, thumbnail) {
+function JPEGImage(tagId, type, cameraId, timestamp, event, thumbnail) {
 	this.tagId = tagId;
 	this.type = type;
 	this.cameraId = cameraId;
 	this.timestamp = timestamp;
+	this.event = event;
 	this.thumbnail = thumbnail;
 	
 	this.postData = {
@@ -11,6 +12,7 @@ function JPEGImage(tagId, type, cameraId, timestamp, thumbnail) {
     			type: this.type,
     			cameraid: this.cameraId,
     			timestamp: this.timestamp,
+    			event: this.event,
     			thumbnail: this.thumbnail,
     			include_image: "True"
     		}
