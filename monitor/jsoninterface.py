@@ -149,11 +149,11 @@ class JSONInterface():
         self.__camera_monitor = camera_monitor
         
         # Initialise server and start listening.
-        self.__socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.__socket = socket.socket()
         self.__socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.__logger.debug("binding to %s:%d" % (self.__SERVER_ADDR, self.__SERVER_PORT))
         self.__socket.bind((self.__SERVER_ADDR, self.__SERVER_PORT))
-#        self.__socket.listen(1)
+        self.__socket.listen(5)
         self.__logger.info("Listening...")
         
         # When there is data available, call the callback.
@@ -181,11 +181,11 @@ class JSONInterface():
             # If it is the correct socket, read data from it.
             if fd == self.__socket.fileno():
                 self.__logger.debug("In the if.")
-#                conn, addr = self.__socket.accept()
+                conn, addr = self.__socket.accept()
                 self.__logger.debug("Have the conn, about to read.")
                 # conn - socket to client
                 # addr - clients address
-                line = self.__socket.recv(1024)
+                line = conn.recv(1024) #receive data from client
                 
                 self.__logger.debug("Rxd raw data: %s" % line)
                 
