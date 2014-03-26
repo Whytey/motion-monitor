@@ -181,11 +181,11 @@ class JSONInterface():
             # If it is the correct socket, read data from it.
             if fd == self.__socket.fileno():
                 self.__logger.debug("In the if.")
-                conn, addr = self.__socket.accept()
+#                conn, addr = self.__socket.accept()
                 self.__logger.debug("Have the conn, about to read.")
                 # conn - socket to client
                 # addr - clients address
-                line = conn.recv(1024) #receive data from client
+                line = self.__socket.recv(1024)
                 
                 self.__logger.debug("Rxd raw data: %s" % line)
                 
