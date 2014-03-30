@@ -34,8 +34,11 @@ class SQLWriter():
         try:
             cursor = self.__connection.cursor()
             
-            # Insert the data to the DB.  Ifgnore any duplicates (as determined by the filename)
-            query = "insert ignore into security (camera, filename, frame, score, file_type, time_stamp, text_event) values (%s, %s, %s, %s, %s, %s, %s)"
+            # Insert the data to the DB.  Ignore any duplicates (as determined by the filename)
+            query = """insert ignore into security 
+                            (camera, filename, frame, score, file_type, time_stamp, text_event) 
+                        values 
+                            (%s, %s, %s, %s, %s, %s, %s)"""
             cursor.executemany(query, files)
             self.__connection.commit()
         except Exception as e:
@@ -50,7 +53,9 @@ class SQLWriter():
             
             # If the list contains filepaths, remove them from the DB
             if filepaths:
-                query =  "delete from security where filename in (%s)"
+                query =  """delete from security 
+                                where 
+                                    filename in (%s)"""
                 self.__logger.debug("Ready to execute: %s" % query)
                 cursor.executemany(query, filepaths) 
                 self.__connection.commit()
@@ -85,7 +90,7 @@ class SQLWriter():
         try:
             cursor = self.__connection.cursor()
             
-            # Select just the snapshot filenames that are stale
+            # Select just the motion filenames that are stale
             cursor.execute("""select filename
                                 from security
                                 where
@@ -99,6 +104,34 @@ class SQLWriter():
             self.__connection.rollback()
             raise
 
+    def get_events(self, fromTimestamp, toTimestamp, cameraIds):
+        self.__logger.debug("Listing events in the DB")
+        try:
+            cursor = self.__connection.cursor()
+
+            # Select just the events within the range of provided parameters
+            query = """select camera, filename, frame, score, file_type, time_stamp, text_event 
+                        from security
+                        where
+                            file_type = 1 """
+            if fromTimestamp:
+                query = query + " and time_stamp > %s" % fromTimestamp
+            if toTimestamp:
+                query = query + " and time_stamp < %s" % toTimestamp
+            if cameraIds:
+                query = query + " and camera in (%s)" % ','.join(cameraIds)
+                
+            self.__logger.debug("About to run query: %s" % query)
+            
+            cursor.execute(query)
+            
+            events = cursor.fetchall()
+
+            return events
+        except Exception as e:
+            self.__logger.exception(e)
+            self.__connection.rollback()
+            raise
                 
     def handle_motion_event(self, object, msg):
         try:

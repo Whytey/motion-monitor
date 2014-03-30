@@ -10,8 +10,78 @@ import base64
 import datetime
 import json
 import logging
+import monitor.sqlexchanger
 import socket
 
+
+class Event():
+    
+    def __init__(self, eventid, cameraid):
+        self.__logger = logging.getLogger("%s.Event" % __name__)
+        self._cameraId = cameraid
+        self._eventId = eventid
+        self._topScore = 0
+        self._startTime = datetime.datetime.now()
+        self._topScoreFrame = None
+        self._frames = []
+        
+    def _include_frame(self, camera, filename, frame, score, file_type, time_stamp, text_event):
+        # See if this is the highest scoring frame
+        if score > self._topScore:
+            self._topScore = score
+            self._topScoreFrame = (camera, filename, frame, score, file_type, time_stamp, text_event)
+        
+        # Is this the earliest frame
+        frameTimeStamp = datetime.datetime.strptime(time_stamp, "%Y-%m-%d %H:%M:%S")
+        if frameTimeStamp < self._startTime:
+            self._startTime = frameTimeStamp
+            
+        # Keep track of all the frames in this event
+        self._frames.append((camera, filename, frame, score, file_type, time_stamp, text_event))
+    
+    def toJSON(self):
+        self.__logger.debug("Getting JSON")
+        jsonstr = {"eventid": self._eventId,
+                   "cameraid": self._cameraid,
+                   "starttime": self._startTime,
+                   "topScoreFrame": self._topScoreFrame,
+                   "frames": self._frames}
+        return jsonstr
+
+    @staticmethod        
+    def get():
+        pass
+    
+    @staticmethod        
+    def list(params):
+        sqlwriter = monitor.sqlexchanger.SQLWriter(monitor.sqlexchanger.DB().getConnection())
+        
+        fromTimestamp = None
+        if "fromTimestamp" in params:
+            fromTimestamp = params["fromTimestamp"]
+        toTimestamp = None
+        if "toTimestamp" in params:
+            toTimestamp = params["toTimestamp"]
+        cameraIds = None
+        if "cameraIds" in params:
+            cameraIds = params["cameraIds"]
+        
+        dbEvents = sqlwriter.get_events(fromTimestamp, toTimestamp, cameraIds)
+        events = {}
+
+        for (camera, filename, frame, score, file_type, time_stamp, text_event) in dbEvents:
+            event = events[(camera, text_event)]
+            if event is None:
+                # Create this event and add to dictionary
+                event = Event(camera, text_event)
+                events[(camera, text_event)] = event
+                
+            # Now we have an event, process this event frame
+            event._include_frame(camera, filename, frame, score, file_type, time_stamp, text_event)
+        
+        # Return the events as a list
+        return events.values()
+    
 
 class Image():
     """This is an Image object, as represented in JSON"""
@@ -205,7 +275,13 @@ class JSONInterface():
                     for result in results:
                         results_json.append(result.toJSON())
                     response["result"] = results_json 
-                    
+                
+                if msg["method"] == "event.list":
+                    results = Event.get(msg["params"])
+                    results_json = []
+                    for result in results:
+                        results_json.append(result.toJSON())
+                    response["result"] = results_json 
         except Exception as e:
             self.__logger.exception(e)
             error = {}
