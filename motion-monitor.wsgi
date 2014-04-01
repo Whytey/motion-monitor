@@ -6,6 +6,7 @@ import base64
 import json
 import re
 import socket
+import sys
 
 
 JSON_TYPE = "JSON"
@@ -18,8 +19,8 @@ HTTP_503 = "503 Service Unavailable"
 def __validate_request(request):
     assert type(request) == dict, "Request should be a dictionary: %s" % request
     assert "method" in request, "Request does not specify what method it is: %s" % request
-    assert request["method"] in ["camera.get",
-                                 "image.get"], "Not a valid request: %s" % request
+#    assert request["method"] in ["camera.get",
+#                                 "image.get"], "Not a valid request: %s" % request
                                                               
 def __get_post_data(environ):
     # the environment variable CONTENT_LENGTH may be empty or missing
@@ -60,7 +61,6 @@ def __get_get_data(environ):
     # Ensure there are no duplicates and remove erroneous list formatting
     for k, v in qs.items():
         if len(v) > 1:
-            # This doesn't need to be a list, just get the first value element
             raise ValueError("Same parameter listed more than once: %s" % k)
         qs[k] = v[0] # No need for lists.
         
@@ -78,7 +78,9 @@ def __request_data(data):
     sock.send(json.dumps(data))
     rxd_data = []
     while True:
+        print >> sys.stderr, "Waiting for data"
         data = sock.recv(65635)
+        print >> sys.stderr, "Got data"
         if not data: break
         rxd_data.append(data)
     return ''.join(rxd_data)

@@ -13,37 +13,70 @@ import logging
 import monitor.sqlexchanger
 import socket
 
+class Frame():
+    def __init__(self, cameraId, timestamp, frameNum, filename):
+        self.__logger = logging.getLogger("%s.Frame" % __name__)
+        self._cameraId = cameraId
+        self._timestamp = timestamp
+        self._frameNum = frameNum
+        self._filename = filename
+
+    def toJSON(self):
+        self.__logger.debug("Getting JSON")
+        jsonstr = {"cameraid": self._cameraId,
+                   "timestamp": self._timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+                   "frame": self._frameNum,
+                   "filename": self._filename}
+        return jsonstr
+
+class EventFrame(Frame):
+    
+    def __init__(self, cameraId, eventId, timestamp, frameNum, filename, score):
+        self.__logger = logging.getLogger("%s.EventFrame" % __name__)
+        Frame.__init__(self, cameraId, timestamp, frameNum, filename)
+        self._eventId = eventId
+        self._score = score
+        
+    def toJSON(self):
+        self.__logger.debug("Getting JSON")
+        jsonstr = {"eventid": self._eventId,
+                   "cameraid": self._cameraId,
+                   "timestamp": self._timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+                   "score": self._score,
+                   "frame": self._frame,
+                   "filename": self._filename}
+        return jsonstr
+
 
 class Event():
     
-    def __init__(self, eventid, cameraid):
+    def __init__(self, eventId, cameraId, startTime):
         self.__logger = logging.getLogger("%s.Event" % __name__)
-        self._cameraId = cameraid
-        self._eventId = eventid
+        self._eventId = eventId
+        self._cameraId = cameraId
         self._topScore = 0
-        self._startTime = datetime.datetime.now()
+        self._startTime = startTime
         self._topScoreFrame = None
         self._frames = []
         
-    def _include_frame(self, camera, filename, frame, score, file_type, time_stamp, text_event):
-        # See if this is the highest scoring frame
-        if score > self._topScore:
-            self._topScore = score
-            self._topScoreFrame = (camera, filename, frame, score, file_type, time_stamp, text_event)
-        
-        # Is this the earliest frame
-        frameTimeStamp = datetime.datetime.strptime(time_stamp, "%Y-%m-%d %H:%M:%S")
-        if frameTimeStamp < self._startTime:
-            self._startTime = frameTimeStamp
-            
-        # Keep track of all the frames in this event
-        self._frames.append((camera, filename, frame, score, file_type, time_stamp, text_event))
+#    def _include_frame(self, camera, filename, frame, score, file_type, time_stamp, text_event):
+#        # See if this is the highest scoring frame
+#        if score > self._topScore:
+#            self._topScore = score
+#            self._topScoreFrame = (camera, filename, frame, score, file_type, time_stamp, text_event)
+#        
+#        # Is this the earliest frame
+#        if time_stamp < self._startTime:
+#            self._startTime = time_stamp
+#            
+#        # Keep track of all the frames in this event
+#        self._frames.append((camera, filename, frame, score, file_type, time_stamp, text_event))
     
     def toJSON(self):
         self.__logger.debug("Getting JSON")
         jsonstr = {"eventid": self._eventId,
-                   "cameraid": self._cameraid,
-                   "starttime": self._startTime,
+                   "cameraid": self._cameraId,
+                   "starttime": self._startTime.strftime("%Y-%m-%d %H:%M:%S"),
                    "topScoreFrame": self._topScoreFrame,
                    "frames": self._frames}
         return jsonstr
@@ -67,20 +100,13 @@ class Event():
             cameraIds = params["cameraIds"]
         
         dbEvents = sqlwriter.get_events(fromTimestamp, toTimestamp, cameraIds)
-        events = {}
+        events = []
 
-        for (camera, filename, frame, score, file_type, time_stamp, text_event) in dbEvents:
-            event = events[(camera, text_event)]
-            if event is None:
-                # Create this event and add to dictionary
-                event = Event(camera, text_event)
-                events[(camera, text_event)] = event
-                
-            # Now we have an event, process this event frame
-            event._include_frame(camera, filename, frame, score, file_type, time_stamp, text_event)
+        for (event_id, camera_id, start_time) in dbEvents:
+            events.append(Event(camera_id, event_id, start_time))
         
         # Return the events as a list
-        return events.values()
+        return events
     
 
 class Image():
@@ -237,7 +263,8 @@ class JSONInterface():
         
         # Check we have a valid method
         assert msg["method"] in ["camera.get",
-                                 "image.get"]
+                                 "image.get",
+                                 "event.list"]
 
         # Check that params have been provided, not necessarily valid params.
         assert "params" in msg, "Message does not specify any parameters: %s" % msg
@@ -277,7 +304,7 @@ class JSONInterface():
                     response["result"] = results_json 
                 
                 if msg["method"] == "event.list":
-                    results = Event.get(msg["params"])
+                    results = Event.list(msg["params"])
                     results_json = []
                     for result in results:
                         results_json.append(result.toJSON())
@@ -291,8 +318,11 @@ class JSONInterface():
             response["error"] = error
         finally:
             if not conn is None:
-                self.__logger.debug("Sending response: %s" % response)
-                conn.send(json.dumps(response))
-                conn.close()
+                try:
+                    self.__logger.debug("Sending response: %s" % response)
+                    conn.send(json.dumps(response))
+                    conn.close()
+                except Exception as e:
+                    self.__logger.exception(e)
             
         return True

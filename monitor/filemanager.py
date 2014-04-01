@@ -84,24 +84,21 @@ class AuditorThread(threading.Thread):
                     filepath = os.path.join(root, filename)
                     
                     row = (self.__get_camera_from_filepath(filepath),
-                           filepath,
-                           0,
-                           0,
-                           2,
                            self.__get_timestamp_from_filepath(filepath),
-                           "")
+                           0,
+                           filepath)
                     
                     self.__logger.debug("Inserting the following snapshot file: %s" % str(row))
                     insertedFiles.append(row)
                     
                     if len(insertedFiles) > 50:
                         self.__logger.debug("Inserting DB entries: %s" % insertedFiles)
-                        self.__sqlwriter.insert_files_into_db(insertedFiles)
+                        self.__sqlwriter.insert_snapshot_frame(insertedFiles)
                         insertedFiles = []
                     
             # Insert the file into the DB
             self.__logger.debug("Inserting remaining DB entries: %s" % insertedFiles)
-            self.__sqlwriter.insert_files_into_db(insertedFiles)
+            self.__sqlwriter.insert_snapshot_frame(insertedFiles)
         except Exception as e:
             self.__logger.exception(e)
             raise
