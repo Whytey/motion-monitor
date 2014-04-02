@@ -29,87 +29,108 @@ class SQLWriter():
         self.__logger.info("Initialised")
         self.__connection = connection
 
-    def insert_snapshot_frame(self, files):
-        self.__logger.debug("Inserting snapshot frame to the DB: %s" % files)
+    def insert_snapshot_frames(self, frames):
+        self.__logger.debug("Inserting snapshot frame to the DB: %s" % frames)
         try:
             cursor = self.__connection.cursor()
             
             # Insert the data to the DB.  Ignore any duplicates (as determined by the filename)
-            query = """insert ignore into snapshot_frame 
-                            (camera_id, timestamp, frame, filename) 
-                        values 
-                            (%s, %s, %s, %s)"""
-            cursor.executemany(query, files)
+            query = """INSERT
+                       IGNORE INTO snapshot_frame (camera_id, timestamp, frame, filename)
+                       VALUES (%s,
+                               %s,
+                               %s,
+                               %s)"""
+            cursor.executemany(query, frames)
             self.__connection.commit()
         except Exception as e:
             self.__logger.exception(e)
             self.__connection.rollback()
             raise
         
-    def insert_motion_frame(self, files):
-        self.__logger.debug("Inserting motion frame to the DB: %s" % files)
+    def insert_motion_frames(self, frames):
+        self.__logger.debug("Inserting motion frame to the DB: %s" % frames)
         try:
             cursor = self.__connection.cursor()
             
             # Insert the data to the DB.  Ignore any duplicates (as determined by the filename)
-            query = """insert ignore into motion_frame 
-                            (event_id, camera_id, timestamp, frame, score, filename) 
-                        values 
-                            (%s, %s, %s, %s, %s, %s)"""
-            cursor.executemany(query, files)
+            query = """INSERT
+                       IGNORE INTO motion_frame (event_id, camera_id, timestamp, frame, score, filename)
+                       VALUES (%s,
+                               %s,
+                               %s,
+                               %s,
+                               %s,
+                               %s)"""
+            self.__logger.debug("About to run query: %s" % query)
+            cursor.executemany(query, frames)
             self.__connection.commit()
         except Exception as e:
             self.__logger.exception(e)
             self.__connection.rollback()
             raise
 
-    def insert_motion_event(self, event):
-        self.__logger.debug("Inserting motion event to the DB: %s" % event)
+    def insert_motion_events(self, events):
+        self.__logger.debug("Inserting motion event to the DB: %s" % events)
         try:
             cursor = self.__connection.cursor()
             
             # Insert the data to the DB.  Ignore any duplicates (as determined by the filename)
-            query = """insert ignore into motion_event 
-                            (event_id, camera_id, start_time) 
-                        values 
-                            (%s, %s, %s)"""
-            cursor.executemany(query, event)
+            query = """INSERT
+                       IGNORE INTO motion_event (event_id, camera_id, start_time)
+                       VALUES (%s,
+                               %s,
+                               %s)"""
+            cursor.executemany(query, events)
             self.__connection.commit()
         except Exception as e:
             self.__logger.exception(e)
             self.__connection.rollback()
             raise
         
-    def remove_files_from_db(self, filepaths):
-        self.__logger.debug("Deleting files from the DB: %s" % filepaths)
+    def delete_snapshot_frame(self, frames):
+        self.__logger.debug("Deleting snapshots from the DB: %s" % frames)
         try:
             cursor = self.__connection.cursor()
             
-            # If the list contains filepaths, remove them from the DB
-            if filepaths:
-                query =  """delete from security 
-                                where 
-                                    filename in (%s)"""
+            # If the list contains frames, remove them from the DB
+            if frames:
+                query = """DELETE
+                           FROM snapshot_frame
+                           WHERE camera_id = %s
+                           AND TIMESTAMP = %s
+                           AND frame = %s"""
                 self.__logger.debug("Ready to execute: %s" % query)
-                cursor.executemany(query, filepaths) 
+                cursor.executemany(query, frames) 
                 self.__connection.commit()
         except Exception as e:
             self.__logger.exception(e)
             self.__connection.rollback()
             raise
         
-    def get_stale_snapshots(self):
+    def get_stale_snapshot_frames(self):
         self.__logger.debug("Listing stale snapshots in the DB")
         try:
             cursor = self.__connection.cursor()
             
             # Select just the snapshot filenames that are stale
-            cursor.execute("""select filename
-                                from snapshot_frame
-                                where
-                                    ((timestamp < subdate(now(), interval 7 day) and minute(timestamp) != 0) or
-                                    (timestamp < subdate(now(), interval 4 week) and (hour(timestamp) not in (6, 12, 18) or minute(timestamp) != 0)) or
-                                    (timestamp < subdate(now(), interval 3 month) and (hour(timestamp) != 12 or minute(timestamp) != 0)))""")
+            query = """SELECT camera_id,
+                              timestamp,
+                              frame,
+                              filename
+                       FROM snapshot_frame
+                       WHERE ((timestamp < subdate(now(), INTERVAL 7 DAY)
+                               AND minute(timestamp) != 0)
+                              OR (timestamp < subdate(now(), INTERVAL 4 WEEK)
+                                  AND (hour(timestamp) NOT IN (6,
+                                                               12,
+                                                               18)
+                                       OR minute(timestamp) != 0))
+                              OR (timestamp < subdate(now(), INTERVAL 3 MONTH)
+                                  AND (hour(timestamp) != 12
+                                       OR minute(timestamp) != 0)))"""
+            self.__logger.debug("About to run query: %s" % query)
+            cursor.execute(query)
             
             stale_snapshots = cursor.fetchall()
             return stale_snapshots
@@ -118,17 +139,31 @@ class SQLWriter():
             self.__connection.rollback()
             raise
         
-    def get_stale_motion(self):
+    def get_stale_motion_frames(self):
         self.__logger.debug("Listing stale motion files in the DB")
         try:
             cursor = self.__connection.cursor()
             
+            # First, delete the events that are stale
+            query = """DELETE
+                       FROM motion_event
+                       WHERE starttime < subdate(now(), interval 7 DAY)"""
+            self.__logger.debug("About to run query: %s" % query)
+            cursor.execute(query)
+            self.__connection.commit()
+            
             # Select just the motion filenames that are stale
-            cursor.execute("""select filename
-                                from security
-                                where
-                                    file_type = 1 and
-                                    time_stamp < subdate(now(), interval 7 day)""")
+            query = """SELECT event_id,
+                              camera_id,
+                              timestamp,
+                              frame,
+                              filename
+                       FROM motion_frame
+                       WHERE event_id NOT IN
+                           (SELECT event_id
+                            FROM motion_event)"""
+            self.__logger.debug("About to run query: %s" % query)
+            cursor.execute(query)
             
             stale_motion = cursor.fetchall()
             return stale_motion
@@ -137,24 +172,26 @@ class SQLWriter():
             self.__connection.rollback()
             raise
 
-    def get_events(self, fromTimestamp, toTimestamp, cameraIds):
+    def get_motion_events(self, fromTimestamp, toTimestamp, cameraIds):
         self.__logger.debug("Listing motion events in the DB")
         try:
             cursor = self.__connection.cursor()
 
             # Select just the events within the range of provided parameters
-            query = """select event_id, camera_id, start_time 
-                        from motion_event"""
+            query = """SELECT event_id,
+                              camera_id,
+                              start_time
+                       FROM motion_event"""
             wheres = []
             if fromTimestamp:
                 wheres.append("start_time > %s" % fromTimestamp)
             if toTimestamp:
                 wheres.append("start_time < %s" % toTimestamp)
             if cameraIds:
-                wheres.append("camera_id in (%s)" % ','.join(cameraIds))
+                wheres.append("camera_id IN (%s)" % ','.join(cameraIds))
                 
             if len(wheres) > 0:
-                query = query + " where " + " and ".join(wheres)
+                query = query + "\nWHERE " + "\nAND ".join(wheres)
                 
             self.__logger.debug("About to run query: %s" % query)
             
@@ -179,27 +216,27 @@ class SQLWriter():
                 return True
             
             if msg["type"] == "picture_save":
-                if msg['filetype'] == 1: # MotionFrame
+                if msg['filetype'] == "1": # MotionFrame
                     files = [(msg['event'],
                               msg['camera'],
                               msg['timestamp'],
                               msg['frame'],
                               msg['score'],
                               msg['file'])] 
-                    self.insert_motion_frame(files)
+                    self.insert_motion_frames(files)
                 
-                if msg['filetype'] == 2: # SnapshotFrame
+                if msg['filetype'] == "2": # SnapshotFrame
                     files = [(msg['camera'],
                               msg['timestamp'],
                               msg['frame'],
                               msg['file'])]
-                    self.insert_snapshot_frame(files)
+                    self.insert_snapshot_frames(files)
 
             if msg["type"] == "event_start":
                 events = [(msg['event'],
                           msg['camera'],
                           msg['timestamp'])]
-                self.insert_motion_event(events)
+                self.insert_motion_events(events)
 
         except Exception as e:
             self.__logger.exception(e)

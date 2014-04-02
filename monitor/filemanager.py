@@ -93,12 +93,12 @@ class AuditorThread(threading.Thread):
                     
                     if len(insertedFiles) > 50:
                         self.__logger.debug("Inserting DB entries: %s" % insertedFiles)
-                        self.__sqlwriter.insert_snapshot_frame(insertedFiles)
+                        self.__sqlwriter.insert_snapshot_frames(insertedFiles)
                         insertedFiles = []
                     
             # Insert the file into the DB
             self.__logger.debug("Inserting remaining DB entries: %s" % insertedFiles)
-            self.__sqlwriter.insert_snapshot_frame(insertedFiles)
+            self.__sqlwriter.insert_snapshot_frames(insertedFiles)
         except Exception as e:
             self.__logger.exception(e)
             raise
@@ -140,29 +140,29 @@ class SweeperThread(threading.Thread):
     def run(self):
         try:
             stale_files = []
-            stale_files.extend(self.__sqlwriter.get_stale_snapshots())
-            stale_files.extend(self.__sqlwriter.get_stale_motion())
+            stale_files.extend(self.__sqlwriter.get_stale_snapshot_frames())
+#            stale_files.extend(self.__sqlwriter.get_stale_motion_frames())
             
             self.__logger.info("Have %s files to delete" % len(stale_files))
 
             # Get the filepath from the returned rowset tuple
             deletedFiles = []
             deletedPaths = set()
-            for (filepath,) in stale_files:
-                if os.path.exists(filepath):
-                    self.__logger.debug("Deleting stale file: %s" % filepath)
-                    delete_path(filepath)
-                    deletedFiles.append(filepath)
-                    deletedPaths.add(os.path.dirname(filepath))
+            for (cameraId, timestamp, frame, filename) in stale_files:
+                if os.path.exists(filename):
+                    self.__logger.debug("Deleting stale file: %s" % filename)
+                    delete_path(filename)
+                    deletedFiles.append((cameraId, timestamp, filename))
+                    deletedPaths.add(os.path.dirname(filename))
                     
                 if len(deletedFiles) > 50:
                     self.__logger.debug("Deleting stale DB entries: %s" % deletedFiles)
-                    self.__sqlwriter.remove_files_from_db(deletedFiles)
+                    self.__sqlwriter.delete_snapshot_frame(deletedFiles)
                     deletedFiles = []
                     
             # Cleanup, in case these were missed in the loop
             self.__logger.debug("Deleting remaining stale DB entries: %s" % deletedFiles)
-            self.__sqlwriter.remove_files_from_db(deletedFiles)
+            self.__sqlwriter.delete_snapshot_frame(deletedFiles)
             
             for path in deletedPaths:
                 self.__logger.debug("Deleting empty paths now")

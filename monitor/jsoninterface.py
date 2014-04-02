@@ -99,7 +99,7 @@ class Event():
         if "cameraIds" in params:
             cameraIds = params["cameraIds"]
         
-        dbEvents = sqlwriter.get_events(fromTimestamp, toTimestamp, cameraIds)
+        dbEvents = sqlwriter.get_motion_events(fromTimestamp, toTimestamp, cameraIds)
         events = []
 
         for (event_id, camera_id, start_time) in dbEvents:
