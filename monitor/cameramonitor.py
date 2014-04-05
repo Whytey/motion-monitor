@@ -20,7 +20,7 @@ class Frame():
     def toJSON(self):
         self.__logger.debug("Getting JSON")
         jsonstr = {"cameraId": self._cameraId,
-                   "timestamp": self._timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+                   "timestamp": self._timestamp,
                    "frame": self._frameNum,
                    "filename": self._filename}
         return jsonstr
@@ -46,7 +46,7 @@ class EventFrame(Frame):
         self.__logger.debug("Getting JSON")
         jsonstr = {"eventId": self._eventId,
                    "cameraId": self._cameraId,
-                   "timestamp": self._timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+                   "timestamp": self._timestamp,
                    "score": self._score,
                    "frame": self._frame,
                    "filename": self._filename}
@@ -86,7 +86,7 @@ class Event():
         self.__logger.debug("Getting JSON")
         jsonstr = {"eventId": self._eventId,
                    "cameraId": self._cameraId,
-                   "startTime": self._startTime.strftime("%Y-%m-%d %H:%M:%S"),
+                   "startTime": self._startTime,
                    "topScoreFrame": self._topScoreFrame,
                    "frames": self._frames}
         return jsonstr
