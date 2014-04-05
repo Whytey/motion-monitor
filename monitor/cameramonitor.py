@@ -197,11 +197,15 @@ class Camera():
         for event in self.__last_motion:
             last_motion_json.append(event.toJSON())
             
+        last_snapshot_json = None
+        if self.__last_snapshot:
+            last_snapshot_json = self.__last_snapshot.toJSON()
+            
         recent_motion_json = []
         recent_motion_json.append(last_motion_json)
-        return {"cameraId": self.__camera_id, 
+        return {"cameraId": self.__cameraId, 
                 "state": self.__state, 
-                "lastSnapshot": self.__last_snapshot,
+                "lastSnapshot": last_snapshot_json,
                 "recentMotion": last_motion_json}
     
 class CameraMonitor(GObject.GObject):
