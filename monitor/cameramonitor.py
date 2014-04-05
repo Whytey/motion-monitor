@@ -6,40 +6,131 @@ Created on 11/08/2013
 from gi.repository import GObject
 
 import logging
+import monitor.sqlexchanger
+from collections import deque
 
-class MotionEvent():
+class Frame():
+    def __init__(self, cameraId, timestamp, frameNum, filename):
+        self.__logger = logging.getLogger("%s.Frame" % __name__)
+        self._cameraId = cameraId
+        self._timestamp = timestamp
+        self._frameNum = frameNum
+        self._filename = filename
+
+    def toJSON(self):
+        self.__logger.debug("Getting JSON")
+        jsonstr = {"cameraId": self._cameraId,
+                   "timestamp": self._timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+                   "frame": self._frameNum,
+                   "filename": self._filename}
+        return jsonstr
+
+    @staticmethod
+    def fromSocketMsg(msg):
+        #self.__logger.debug("Creating Frame from socket message: %s" % msg)
+        cameraId = msg["camera"]
+        timestamp = msg["timestamp"]
+        frameNum = msg["frame"]
+        filename = msg["file"]
+        return Frame(cameraId, timestamp, frameNum, filename)
+
+class EventFrame(Frame):
     
-    def __init__(self, msg):
-        self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
-        
-        self.__logger.debug("Initialising with msg: %s" % msg)
-
-        self.__starttime = msg["timestamp"]
-        self.__event_id = msg["event"]
-        self.__bestimage = None
-        self.__bestimage_score = 0
-        self.__bestimage_time = None
-        
-    def handle_image(self, msg):
-        self.__logger.debug("Handling an image")
-        try:
-            score = int(msg["score"])
-            if score > self.__bestimage_score:
-                self.__logger.debug("Score of %d is better than %d" % (score, self.__bestimage_score))
-                self.__bestimage_score = score
-                self.__bestimage = msg["file"] 
-                self.__bestimage_time = msg["timestamp"]
-        except ValueError:
-            self.__logger.warning("Unable to cast the score: %s" % msg["score"])
-            pass
+    def __init__(self, cameraId, eventId, timestamp, frameNum, filename, score):
+        self.__logger = logging.getLogger("%s.EventFrame" % __name__)
+        Frame.__init__(self, cameraId, timestamp, frameNum, filename)
+        self._eventId = eventId
+        self._score = score
         
     def toJSON(self):
         self.__logger.debug("Getting JSON")
-        return {"starttime": self.__starttime,
-                "event_id": self.__event_id,
-                "best_image": self.__bestimage,
-                "best_image_score": self.__bestimage_score,
-                "best_image_time": self.__bestimage_time}
+        jsonstr = {"eventId": self._eventId,
+                   "cameraId": self._cameraId,
+                   "timestamp": self._timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+                   "score": self._score,
+                   "frame": self._frame,
+                   "filename": self._filename}
+        return jsonstr
+
+    @staticmethod
+    def fromSocketMsg(msg):
+        #self.__logger.debug("Creating EventFrame from socket message: %s" % msg)
+        cameraId = msg["camera"]
+        eventId = msg["event"]
+        timestamp = msg["timestamp"]
+        frameNum = msg["frame"]
+        filename = msg["file"]
+        score = msg["score"]
+        return EventFrame(cameraId, eventId, timestamp, frameNum, filename, score)
+
+
+class Event():
+    
+    def __init__(self, eventId, cameraId, startTime):
+        self.__logger = logging.getLogger("%s.Event" % __name__)
+        self._eventId = eventId
+        self._cameraId = cameraId
+        self._startTime = startTime
+        self._topScoreFrame = None
+        self._frames = []
+        
+    def _include_frame(self, eventFrame):
+        # See if this is the highest scoring frame
+        if eventFrame._score > self._topScore:
+            self._topScoreFrame = eventFrame
+        
+        # Is this the earliest frame
+        if eventFrame._timestamp < self._startTime:
+            self._startTime = eventFrame._timestamp
+            
+        # Keep track of all the frames in this event
+        self._frames.append(eventFrame)
+    
+    def toJSON(self):
+        self.__logger.debug("Getting JSON")
+        jsonstr = {"eventId": self._eventId,
+                   "cameraId": self._cameraId,
+                   "startTime": self._startTime.strftime("%Y-%m-%d %H:%M:%S"),
+                   "topScoreFrame": self._topScoreFrame,
+                   "frames": self._frames}
+        return jsonstr
+    
+    @staticmethod
+    def fromSocketMsg(msg):
+        #self.__logger.debug("Creating Event from socket message: %s" % msg)
+        eventId = msg["event"]
+        cameraId = msg["camera"]
+        startTime = msg["timestamp"]
+        return Event(eventId, cameraId, startTime)
+    
+    @staticmethod        
+    def get(params):
+        sqlwriter = monitor.sqlexchanger.SQLWriter(monitor.sqlexchanger.DB().getConnection())
+        pass
+    
+    @staticmethod        
+    def list(params):
+        # Returns the list of motion events from the DB only.
+        sqlwriter = monitor.sqlexchanger.SQLWriter(monitor.sqlexchanger.DB().getConnection())
+        
+        fromTimestamp = None
+        if "fromTimestamp" in params:
+            fromTimestamp = params["fromTimestamp"]
+        toTimestamp = None
+        if "toTimestamp" in params:
+            toTimestamp = params["toTimestamp"]
+        cameraIds = None
+        if "cameraIds" in params:
+            cameraIds = params["cameraIds"]
+        
+        dbEvents = sqlwriter.get_motion_events(fromTimestamp, toTimestamp, cameraIds)
+        events = []
+
+        for (event_id, camera_id, start_time) in dbEvents:
+            events.append(Event(event_id, camera_id, start_time))
+        
+        # Return the events as a list
+        return events
 
 class Camera():
     
@@ -54,33 +145,33 @@ class Camera():
     STATE_ACTIVITY = 2
     STATE_LOST = 4
     
-    def __init__(self, camera_id):
+    def __init__(self, cameraId):
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
 
-        self.__camera_id = camera_id
+        self.__cameraId = cameraId
         self.__state = self.STATE_IDLE 
+        self.__last_snapshot = None
+        self.__last_motion = deque([], 10)
         
-        self.__last_snapshot_path = None
-        self.__last_snapshot_timestamp = None
-        self.__last_motion = None
-        
-    def get_id(self):
-        return self.__camera_id
-    
-    def get_state(self):
-        return self.__state
-    
-    def get_last_snapshot(self):
-        return self.__last_snapshot_path
-    
-    def get_last_motion(self):
-        return self.__last_motion
+#    def get_id(self):
+#        return self.__camera_id
+#    
+#    def get_state(self):
+#        return self.__state
+#    
+#    def get_last_snapshot(self):
+#        return self.__last_snapshot_path
+#    
+#    def get_last_motion(self):
+#        return self.__last_motion
         
     def handle_activity(self, msg):
         if msg["type"] == "event_start":
             self.__state = self.STATE_ACTIVITY
-            # We need a MotionEvent
-            self.__last_motion = MotionEvent(msg)
+            # We need an Event
+            newEvent = Event.fromSocketMsg(msg)
+            self.__logger.debug("Created new event: %s" % newEvent)
+            self.__last_motion.appendleft(newEvent)
             self.__logger.debug("Last motion: %s" % self.__last_motion)
         if msg["type"] == "event_end":
             self.__state = self.STATE_IDLE
@@ -90,29 +181,28 @@ class Camera():
             filetype = int(msg["filetype"])
             if filetype == self.FTYPE_IMAGE_SNAPSHOT:
                 self.__logger.debug("Handling a snapshot")
-                self.__last_snapshot_path = msg["file"]
-                self.__last_snapshot_timestamp = msg["timestamp"]
+                self.__last_snapshot = Frame.fromSocketMsg(msg)
             
             if filetype == self.FTYPE_IMAGE:
                 self.__logger.debug("Handling motion image")
-                self.__last_motion.handle_image(msg)
+                eventFrame = EventFrame.fromSocketMsg(msg)
+                self.__last_motion[0]._include_frame(eventFrame)
         except ValueError:
             self.__logger.warning("Received an unexpected filetype: %s" % msg["filetype"])
             
     def toJSON(self):
         self.__logger.debug("Getting JSON")
-        if self.__last_motion is None:
-            last_motion_json = None
-        else:
-            last_motion_json = self.__last_motion.toJSON()
+
+        last_motion_json = []
+        for event in self.__last_motion:
+            last_motion_json.append(event.toJSON())
             
         recent_motion_json = []
         recent_motion_json.append(last_motion_json)
-        return {"id": self.__camera_id, 
+        return {"cameraId": self.__camera_id, 
                 "state": self.__state, 
-                "last_snapshot_path": self.__last_snapshot_path,
-                "last_snapshot_timestamp": self.__last_snapshot_timestamp,
-                "recent_motion": recent_motion_json}
+                "lastSnapshot": self.__last_snapshot,
+                "recentMotion": last_motion_json}
     
 class CameraMonitor(GObject.GObject):
     
