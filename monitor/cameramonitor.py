@@ -76,13 +76,9 @@ class Event():
         
     def _include_frame(self, eventFrame):
         # See if this is the highest scoring frame
-        if eventFrame._score > self._topScore:
+        if self._topScoreFrame and eventFrame._score > self._topScoreFrame._score:
             self._topScoreFrame = eventFrame
         
-        # Is this the earliest frame
-        if eventFrame._timestamp < self._startTime:
-            self._startTime = eventFrame._timestamp
-            
         # Keep track of all the frames in this event
         self._frames.append(eventFrame)
     
@@ -151,19 +147,7 @@ class Camera():
         self.__cameraId = cameraId
         self.__state = self.STATE_IDLE 
         self.__last_snapshot = None
-        self.__last_motion = deque([], 10)
-        
-#    def get_id(self):
-#        return self.__camera_id
-#    
-#    def get_state(self):
-#        return self.__state
-#    
-#    def get_last_snapshot(self):
-#        return self.__last_snapshot_path
-#    
-#    def get_last_motion(self):
-#        return self.__last_motion
+        self.__recent_motion = deque([], 10)
         
     def handle_activity(self, msg):
         if msg["type"] == "event_start":
@@ -171,8 +155,8 @@ class Camera():
             # We need an Event
             newEvent = Event.fromSocketMsg(msg)
             self.__logger.debug("Created new event: %s" % newEvent)
-            self.__last_motion.appendleft(newEvent)
-            self.__logger.debug("Last motion: %s" % self.__last_motion)
+            self.__recent_motion.appendleft(newEvent)
+            self.__logger.debug("Last motion: %s" % self.__recent_motion)
         if msg["type"] == "event_end":
             self.__state = self.STATE_IDLE
             
@@ -186,27 +170,25 @@ class Camera():
             if filetype == self.FTYPE_IMAGE:
                 self.__logger.debug("Handling motion image")
                 eventFrame = EventFrame.fromSocketMsg(msg)
-                self.__last_motion[0]._include_frame(eventFrame)
+                self.__recent_motion[0]._include_frame(eventFrame)
         except ValueError:
             self.__logger.warning("Received an unexpected filetype: %s" % msg["filetype"])
             
     def toJSON(self):
         self.__logger.debug("Getting JSON")
 
-        last_motion_json = []
-        for event in self.__last_motion:
-            last_motion_json.append(event.toJSON())
+        recent_motion_json = []
+        for event in self.__recent_motion:
+            recent_motion_json.append(event.toJSON())
             
         last_snapshot_json = None
         if self.__last_snapshot:
             last_snapshot_json = self.__last_snapshot.toJSON()
             
-        recent_motion_json = []
-        recent_motion_json.append(last_motion_json)
         return {"cameraId": self.__cameraId, 
                 "state": self.__state, 
                 "lastSnapshot": last_snapshot_json,
-                "recentMotion": last_motion_json}
+                "recentMotion": recent_motion_json}
     
 class CameraMonitor(GObject.GObject):
     
