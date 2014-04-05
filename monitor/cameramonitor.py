@@ -8,7 +8,7 @@ from gi.repository import GObject
 import logging
 import monitor.sqlexchanger
 from collections import deque
-
+from datetime import datetime
 class Frame():
     def __init__(self, cameraId, timestamp, frameNum, filename):
         self.__logger = logging.getLogger("%s.Frame" % __name__)
@@ -20,7 +20,7 @@ class Frame():
     def toJSON(self):
         self.__logger.debug("Getting JSON")
         jsonstr = {"cameraId": self._cameraId,
-                   "timestamp": self._timestamp,
+                   "timestamp": self._timestamp.strftime("%Y-%m-%d %H:%M:%S"),
                    "frame": self._frameNum,
                    "filename": self._filename}
         return jsonstr
@@ -46,9 +46,9 @@ class EventFrame(Frame):
         self.__logger.debug("Getting JSON")
         jsonstr = {"eventId": self._eventId,
                    "cameraId": self._cameraId,
-                   "timestamp": self._timestamp,
+                   "timestamp": self._timestamp.strftime("%Y-%m-%d %H:%M:%S"),
                    "score": self._score,
-                   "frame": self._frame,
+                   "frame": self._frameNum,
                    "filename": self._filename}
         return jsonstr
 
@@ -84,11 +84,17 @@ class Event():
     
     def toJSON(self):
         self.__logger.debug("Getting JSON")
+        
+        frames_json = []
+        for frame in self._frames:
+            frames_json.append(frame.toJSON())
+
+
         jsonstr = {"eventId": self._eventId,
                    "cameraId": self._cameraId,
-                   "startTime": self._startTime,
+                   "startTime": self._startTime.strftime("%Y-%m-%d %H:%M:%S"),
                    "topScoreFrame": self._topScoreFrame,
-                   "frames": self._frames}
+                   "frames": frames_json}
         return jsonstr
     
     @staticmethod
@@ -96,7 +102,7 @@ class Event():
         #self.__logger.debug("Creating Event from socket message: %s" % msg)
         eventId = msg["event"]
         cameraId = msg["camera"]
-        startTime = msg["timestamp"]
+        startTime = datetime.strptime(msg["timestamp"], "%Y%m%d%H%M%S")
         return Event(eventId, cameraId, startTime)
     
     @staticmethod        

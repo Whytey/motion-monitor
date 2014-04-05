@@ -1,5 +1,5 @@
 function IO(widget, refreshRate) {
-	this.url = "wsgi";
+	this.url = "http://192.168.0.100/motion-monitor/wsgi";
 	this.widget = widget;
 	this.refreshRate = refreshRate;
 	
