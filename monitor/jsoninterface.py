@@ -6,110 +6,13 @@ Created on 11/08/2013
 from PIL import Image as PILImage
 from StringIO import StringIO
 from gi.repository import GObject
+from monitor.cameramonitor import Event
 import base64
 import datetime
 import json
 import logging
-import monitor.sqlexchanger
-from monitor.cameramonitor import Event
 import socket
-
-#class Frame():
-#    def __init__(self, cameraId, timestamp, frameNum, filename):
-#        self.__logger = logging.getLogger("%s.Frame" % __name__)
-#        self._cameraId = cameraId
-#        self._timestamp = timestamp
-#        self._frameNum = frameNum
-#        self._filename = filename
-#
-#    def toJSON(self):
-#        self.__logger.debug("Getting JSON")
-#        jsonstr = {"cameraid": self._cameraId,
-#                   "timestamp": self._timestamp.strftime("%Y-%m-%d %H:%M:%S"),
-#                   "frame": self._frameNum,
-#                   "filename": self._filename}
-#        return jsonstr
-#
-#class EventFrame(Frame):
-#    
-#    def __init__(self, cameraId, eventId, timestamp, frameNum, filename, score):
-#        self.__logger = logging.getLogger("%s.EventFrame" % __name__)
-#        Frame.__init__(self, cameraId, timestamp, frameNum, filename)
-#        self._eventId = eventId
-#        self._score = score
-#        
-#    def toJSON(self):
-#        self.__logger.debug("Getting JSON")
-#        jsonstr = {"eventid": self._eventId,
-#                   "cameraid": self._cameraId,
-#                   "timestamp": self._timestamp.strftime("%Y-%m-%d %H:%M:%S"),
-#                   "score": self._score,
-#                   "frame": self._frame,
-#                   "filename": self._filename}
-#        return jsonstr
-#
-#
-#class Event():
-#    
-#    def __init__(self, eventId, cameraId, startTime):
-#        self.__logger = logging.getLogger("%s.Event" % __name__)
-#        self._eventId = eventId
-#        self._cameraId = cameraId
-#        self._topScore = 0
-#        self._startTime = startTime
-#        self._topScoreFrame = None
-#        self._frames = []
-#        
-##    def _include_frame(self, camera, filename, frame, score, file_type, time_stamp, text_event):
-##        # See if this is the highest scoring frame
-##        if score > self._topScore:
-##            self._topScore = score
-##            self._topScoreFrame = (camera, filename, frame, score, file_type, time_stamp, text_event)
-##        
-##        # Is this the earliest frame
-##        if time_stamp < self._startTime:
-##            self._startTime = time_stamp
-##            
-##        # Keep track of all the frames in this event
-##        self._frames.append((camera, filename, frame, score, file_type, time_stamp, text_event))
-#    
-#    def toJSON(self):
-#        self.__logger.debug("Getting JSON")
-#        jsonstr = {"eventid": self._eventId,
-#                   "cameraid": self._cameraId,
-#                   "starttime": self._startTime.strftime("%Y-%m-%d %H:%M:%S"),
-#                   "topScoreFrame": self._topScoreFrame,
-#                   "frames": self._frames}
-#        return jsonstr
-#
-#    @staticmethod        
-#    def get(params):
-#        sqlwriter = monitor.sqlexchanger.SQLWriter(monitor.sqlexchanger.DB().getConnection())
-#        pass
-#    
-#    @staticmethod        
-#    def list(params):
-#        sqlwriter = monitor.sqlexchanger.SQLWriter(monitor.sqlexchanger.DB().getConnection())
-#        
-#        fromTimestamp = None
-#        if "fromTimestamp" in params:
-#            fromTimestamp = params["fromTimestamp"]
-#        toTimestamp = None
-#        if "toTimestamp" in params:
-#            toTimestamp = params["toTimestamp"]
-#        cameraIds = None
-#        if "cameraIds" in params:
-#            cameraIds = params["cameraIds"]
-#        
-#        dbEvents = sqlwriter.get_motion_events(fromTimestamp, toTimestamp, cameraIds)
-#        events = []
-#
-#        for (event_id, camera_id, start_time) in dbEvents:
-#            events.append(Event(event_id, camera_id, start_time))
-#        
-#        # Return the events as a list
-#        return events
-    
+   
 
 class Image():
     """This is an Image object, as represented in JSON"""
@@ -293,10 +196,11 @@ class JSONInterface():
                 self.__validate_msg(msg)
             
                 if msg["method"] == "camera.get":
-                    cams_resp = []
-                    for key, camera in self.__camera_monitor.get_cameras().items():
-                        cams_resp.append(camera.toJSON())
-                    response["camera"] = cams_resp
+                    results_json = []
+                    for result in self.__camera_monitor.get_cameras().values():
+                        results_json.append(result.toJSON())
+                    response["result"] = results_json
+                    response["count"] = len(results_json)
                 
                 if msg["method"] == "image.get":
                     results = Image.get(msg["params"])
@@ -304,6 +208,15 @@ class JSONInterface():
                     for result in results:
                         results_json.append(result.toJSON())
                     response["result"] = results_json 
+                    response["count"] = len(results_json)
+
+                if msg["method"] == "event.get":
+                    results = Event.list(msg["params"])
+                    results_json = []
+                    for result in results:
+                        results_json.append(result.toJSON())
+                    response["result"] = results_json 
+                    response["count"] = len(results_json)
                 
                 if msg["method"] == "event.list":
                     results = Event.list(msg["params"])
@@ -311,6 +224,7 @@ class JSONInterface():
                     for result in results:
                         results_json.append(result.toJSON())
                     response["result"] = results_json 
+                    response["count"] = len(results_json)
         except Exception as e:
             self.__logger.exception(e)
             error = {}

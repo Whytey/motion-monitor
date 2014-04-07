@@ -66,6 +66,6 @@ function CameraSummary(tagId) {
 	}
 	
 	this.handleError = function(json) {
-	    console.log("Handling camera_summary error");
+	    console.log("Handling CameraSummary error");
 	}
 }

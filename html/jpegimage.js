@@ -27,4 +27,9 @@ function JPEGImage(tagId, type, cameraId, timestamp, event, thumbnail) {
     		$("#" + tagId).attr("src", "data:image/jpeg;base64," + image_data);
         });
 	}
+	
+	this.handleError = function(json) {
+	    console.log("Handling JPEGImage error");
+	}
+
 }

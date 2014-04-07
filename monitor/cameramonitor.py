@@ -3,12 +3,12 @@ Created on 11/08/2013
 
 @author: djwhyte
 '''
-from gi.repository import GObject
-
-import logging
-import monitor.sqlexchanger
 from collections import deque
 from datetime import datetime
+from gi.repository import GObject
+import logging
+import monitor.sqlexchanger
+
 class Frame():
     def __init__(self, cameraId, timestamp, frameNum, filename):
         self.__logger = logging.getLogger("%s.Frame" % __name__)
@@ -20,7 +20,7 @@ class Frame():
     def toJSON(self):
         self.__logger.debug("Getting JSON")
         jsonstr = {"cameraId": self._cameraId,
-                   "timestamp": self._timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+                   "timestamp": self._timestamp.strftime("%Y%m%d%H%M%S"),
                    "frame": self._frameNum,
                    "filename": self._filename}
         return jsonstr
@@ -29,7 +29,7 @@ class Frame():
     def fromSocketMsg(msg):
         #self.__logger.debug("Creating Frame from socket message: %s" % msg)
         cameraId = msg["camera"]
-        timestamp = msg["timestamp"]
+        timestamp = datetime.strptime(msg["timestamp"], "%Y%m%d%H%M%S")
         frameNum = msg["frame"]
         filename = msg["file"]
         return Frame(cameraId, timestamp, frameNum, filename)
@@ -46,7 +46,7 @@ class EventFrame(Frame):
         self.__logger.debug("Getting JSON")
         jsonstr = {"eventId": self._eventId,
                    "cameraId": self._cameraId,
-                   "timestamp": self._timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+                   "timestamp": self._timestamp.strftime("%Y%m%d%H%M%S"),
                    "score": self._score,
                    "frame": self._frameNum,
                    "filename": self._filename}
@@ -57,7 +57,7 @@ class EventFrame(Frame):
         #self.__logger.debug("Creating EventFrame from socket message: %s" % msg)
         cameraId = msg["camera"]
         eventId = msg["event"]
-        timestamp = msg["timestamp"]
+        timestamp = datetime.strptime(msg["timestamp"], "%Y%m%d%H%M%S")
         frameNum = msg["frame"]
         filename = msg["file"]
         score = msg["score"]
@@ -72,29 +72,24 @@ class Event():
         self._cameraId = cameraId
         self._startTime = startTime
         self._topScoreFrame = None
-        self._frames = []
         
     def _include_frame(self, eventFrame):
         # See if this is the highest scoring frame
-        if self._topScoreFrame and eventFrame._score > self._topScoreFrame._score:
+        if not self._topScoreFrame or (self._topScoreFrame and 
+                                       eventFrame._score > self._topScoreFrame._score):
             self._topScoreFrame = eventFrame
-        
-        # Keep track of all the frames in this event
-        self._frames.append(eventFrame)
-    
+            
     def toJSON(self):
         self.__logger.debug("Getting JSON")
         
-        frames_json = []
-        for frame in self._frames:
-            frames_json.append(frame.toJSON())
-
+        topScoreFrame_json = None
+        if self._topScoreFrame:
+            topScoreFrame_json = self._topScoreFrame.toJSON()
 
         jsonstr = {"eventId": self._eventId,
                    "cameraId": self._cameraId,
-                   "startTime": self._startTime.strftime("%Y-%m-%d %H:%M:%S"),
-                   "topScoreFrame": self._topScoreFrame,
-                   "frames": frames_json}
+                   "startTime": self._startTime.strftime("%Y%m%d%H%M%S"),
+                   "topScoreFrame": topScoreFrame_json}
         return jsonstr
     
     @staticmethod
@@ -108,7 +103,19 @@ class Event():
     @staticmethod        
     def get(params):
         sqlwriter = monitor.sqlexchanger.SQLWriter(monitor.sqlexchanger.DB().getConnection())
-        pass
+
+        assert "eventId" in params, "No eventId is specified: %s" % params
+        
+        eventId = params["eventId"]        
+        
+        dbEvents = sqlwriter.get_motion_event_frames(eventId)
+        events = []
+
+        for (event_id, camera_id, start_time) in dbEvents:
+            events.append(Event(event_id, camera_id, start_time))
+        
+        # Return the events as a list
+        return events
     
     @staticmethod        
     def list(params):

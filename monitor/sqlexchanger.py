@@ -205,6 +205,39 @@ class SQLWriter():
             self.__connection.rollback()
             raise
         
+    def get_motion_event_frames(self, eventId):
+        self.__logger.debug("Listing motion event frames in the DB")
+        try:
+            cursor = self.__connection.cursor()
+
+            # Select just the events within the range of provided parameters
+            query = """SELECT event_id,
+                              camera_id,
+                              start_time
+                       FROM motion_frames"""
+            wheres = []
+            if fromTimestamp:
+                wheres.append("start_time > %s" % fromTimestamp)
+            if toTimestamp:
+                wheres.append("start_time < %s" % toTimestamp)
+            if cameraIds:
+                wheres.append("camera_id IN (%s)" % ','.join(cameraIds))
+                
+            if len(wheres) > 0:
+                query = query + "\nWHERE " + "\nAND ".join(wheres)
+                
+            self.__logger.debug("About to run query: %s" % query)
+            
+            cursor.execute(query)
+            
+            events = cursor.fetchall()
+
+            return events
+        except Exception as e:
+            self.__logger.exception(e)
+            self.__connection.rollback()
+            raise
+        
     def get_timelapse(self, fromTimestamp, toTimestamp, interval):
         pass
                 
