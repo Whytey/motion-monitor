@@ -26,7 +26,7 @@ function CameraSummary(tagId) {
 	    cell = headerRow.insertCell(-1);
 	    cell.innerHTML = "<b>Last Motion</b>";
 	
-	    $(json.camera).each(function(index, camera) {
+	    $(json.result).each(function(index, camera) {
 	        var tr = tbl.insertRow(-1);
 	        
 	        var idCell = tr.insertCell(-1);
