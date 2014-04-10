@@ -7,6 +7,7 @@ import json
 import re
 import socket
 import sys
+import monitor.stream.snapshot
 
 
 JSON_TYPE = "JSON"
@@ -19,8 +20,8 @@ HTTP_503 = "503 Service Unavailable"
 def __validate_request(request):
     assert type(request) == dict, "Request should be a dictionary: %s" % request
     assert "method" in request, "Request does not specify what method it is: %s" % request
-#    assert request["method"] in ["camera.get",
-#                                 "image.get"], "Not a valid request: %s" % request
+    
+    return request["method"]
                                                               
 def __get_post_data(environ):
     # the environment variable CONTENT_LENGTH may be empty or missing
@@ -78,9 +79,7 @@ def __request_data(data):
     sock.send(json.dumps(data))
     rxd_data = []
     while True:
-        print >> sys.stderr, "Waiting for data"
         data = sock.recv(65635)
-        print >> sys.stderr, "Got data"
         if not data: break
         rxd_data.append(data)
     return ''.join(rxd_data)
@@ -89,14 +88,28 @@ def __error_response(start_response, http_status, error_msg):
     start_response(http_status, [('Content-Type', 'text/plain')])
     return [error_msg]
 
-def __json_response(start_response, response_json):
-    response_string = json.dumps(response_json)
+def __jpeg_response(start_response, response_json):
+    # Extract the image bytes from the JSON
+    image_bytes = response_json["image"]
+    decoded_string = base64.b64decode(image_bytes)
+    
     # Need to check if this allow-origin is really needed.    
     response_headers = [('Access-Control-Allow-Origin', "*"),
-                        ('Content-Type', 'application/json'),
-                        ('Content-Length', str(len(response_string)))]
+                        ('Content-Type', 'image/jpeg'),
+                        ('Content-Length', str(len(decoded_string)))]
     start_response(HTTP_200, response_headers)
-    return [response_string]
+    return [decoded_string]
+
+def getSnapshot(data):
+    request = {"method": "image.get",
+               "params": {"timestamp": "20140401120000", 
+                          "type": "2", 
+                          "cameraid": "1", 
+                          "include_image": "True"}
+               }
+    
+    data = __request_data(request)
+    
 
 def application(environ, start_response):
     request_method = environ["REQUEST_METHOD"].lower()
@@ -110,23 +123,19 @@ def application(environ, start_response):
         return __error_response(start_response, HTTP_503, 'Invalid request type: %s' % e)
     
     try:
-        __validate_request(data)
+        request_type = __validate_request(data)
     except AssertionError as e:
         return __error_response(start_response, HTTP_503, 'Invalid request: %s' % e)
     
     try:
-        response = __request_data(data)
+        if request_type == "snapshot":
+            response = getSnapshot(data)
     except Exception as e:
         # Socket errors
         return __error_response(start_response, HTTP_500, 'Error processing request: %s' % e)
         
-    response_json = json.loads(response)
-    print response_json
-    
-#    if "error" in response_json:
-#        return __error_response(start_response, HTTP_503, str(response_json["error"])) 
-        
-    return __json_response(start_response, response_json)
+       
+    return __jpeg_response(start_response, response)
    
 
 # The following is for test purposes.
