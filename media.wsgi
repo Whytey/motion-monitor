@@ -2,12 +2,12 @@
 
 from cgi import parse_qs, escape
 from wsgiref.simple_server import make_server
-import base64
 import json
 import re
 import socket
 import sys
-import monitor.stream.snapshot
+import monitor.stream.handlers
+from monitor.stream.handlers import SnapshotHandler
 
 
 JSON_TYPE = "JSON"
@@ -70,46 +70,20 @@ def __get_get_data(environ):
     print qs
     return qs
 
-def __request_data(data):
-    # Get the data from the socket
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
-    sock.connect(('localhost', 8889))
-    sock.send(json.dumps(data))
-    rxd_data = []
-    while True:
-        data = sock.recv(65635)
-        if not data: break
-        rxd_data.append(data)
-    return ''.join(rxd_data)
-
 def __error_response(start_response, http_status, error_msg):
     start_response(http_status, [('Content-Type', 'text/plain')])
     return [error_msg]
 
-def __jpeg_response(start_response, response_json):
-    # Extract the image bytes from the JSON
-    image_bytes = response_json["image"]
-    decoded_string = base64.b64decode(image_bytes)
+def __byte_response(start_response, handler):
+    
+    bytes = handler.getBytes()
     
     # Need to check if this allow-origin is really needed.    
     response_headers = [('Access-Control-Allow-Origin', "*"),
-                        ('Content-Type', 'image/jpeg'),
-                        ('Content-Length', str(len(decoded_string)))]
+                        ('Content-Type', handler.contentType),
+                        ('Content-Length', str(len(bytes)))]
     start_response(HTTP_200, response_headers)
-    return [decoded_string]
-
-def getSnapshot(data):
-    request = {"method": "image.get",
-               "params": {"timestamp": "20140401120000", 
-                          "type": "2", 
-                          "cameraid": "1", 
-                          "include_image": "True"}
-               }
-    
-    data = __request_data(request)
-    
+    return [bytes]
 
 def application(environ, start_response):
     request_method = environ["REQUEST_METHOD"].lower()
@@ -129,14 +103,12 @@ def application(environ, start_response):
     
     try:
         if request_type == "snapshot":
-            response = getSnapshot(data)
+            handler = SnapshotHandler(data)
+        return __byte_response(start_response, handler)
     except Exception as e:
         # Socket errors
         return __error_response(start_response, HTTP_500, 'Error processing request: %s' % e)
         
-       
-    return __jpeg_response(start_response, response)
-   
 
 # The following is for test purposes.
 if __name__ == '__main__':
