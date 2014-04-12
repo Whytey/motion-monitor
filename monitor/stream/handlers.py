@@ -10,6 +10,9 @@ import json
 import logging
 import socket
 
+class HandlerException(Exception):
+    pass
+
 def _request_data(data):
     # Get the data from the socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -61,8 +64,11 @@ class BaseHandler(object):
         response_json = json.loads(response)
         
         # Extract the image from it and return the bytes
-        imageBytes = response_json["result"][0]["image"]
-        decodedBytes = base64.b64decode(imageBytes)
+        try:
+            imageBytes = response_json["result"][0]["image"]
+            decodedBytes = base64.b64decode(imageBytes)
+        except KeyError, e:
+            raise HandlerException(response_json)
 
         return decodedBytes
             
