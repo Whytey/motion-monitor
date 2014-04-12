@@ -9,9 +9,7 @@ import base64
 import json
 import logging
 import socket
-
-class HandlerException(Exception):
-    pass
+import time
 
 def _request_data(data):
     # Get the data from the socket
@@ -33,19 +31,46 @@ def getHandler(requestData):
 class BaseHandler(object):
     __metaclass__ = ABCMeta
 
-    def __init__(self, contentType, request):
+    def __init__(self, request):
         self.__logger = logging.getLogger("%s.BaseHandler" % __name__)
-        self._contentType = contentType
+        self._responseHeaders= {}
         self._request = request
         
-    @property
-    def contentType(self):
-        return self._contentType
+    def __iter__(self):
+        return self
     
     @abstractmethod
-    def getBytes(self):
+    def next(self):
         pass
+        
+    def getResponseHeaders(self):
+        return self._responseHeaders
     
+class AbstractFrameHandler(BaseHandler):
+
+    def __init__(self, request):
+        self.__logger = logging.getLogger("%s.AbstractFrameHandler" % __name__)
+        BaseHandler.__init__(self, request)
+        
+        self._bytes = self._generateBytes()
+        
+        self._responseHeaders["Access-Control-Allow-Origin"] = "*"
+        self._responseHeaders["Content-Type"] = "image/jpeg"
+        self._responseHeaders["Content-Length"] = str(len(self._bytes))
+        
+        self.__providedData = False
+        
+    def next(self):
+        if self.__providedData:
+            raise StopIteration
+        else:
+            self.__providedData = True
+            return self._bytes
+
+    @abstractmethod
+    def _generateBytes(self):
+        pass
+
     @staticmethod
     def _getFrameBytes(cameraId, timestamp, frame, eventId=None):
         # Request the data in JSON format
@@ -68,18 +93,18 @@ class BaseHandler(object):
             imageBytes = response_json["result"][0]["image"]
             decodedBytes = base64.b64decode(imageBytes)
         except KeyError, e:
-            raise HandlerException(response_json)
+            raise KeyError(e + response_json)
 
         return decodedBytes
             
 
-class SnapshotFrameHandler(BaseHandler):
+class SnapshotFrameHandler(AbstractFrameHandler):
     
     def __init__(self, request):
         self.__logger = logging.getLogger("%s.SnapshotFrameHandler" % __name__)
-        BaseHandler.__init__(self, "image/jpeg", request)
-    
-    def getBytes(self):
+        AbstractFrameHandler.__init__(self, request)
+        
+    def _generateBytes(self):
         # Get this requests params
         try:
             cameraId = self._request["cameraId"]
@@ -90,15 +115,15 @@ class SnapshotFrameHandler(BaseHandler):
             raise e
         
         # Return the bytes for the snapshot frame
-        return BaseHandler._getFrameBytes(cameraId, timestamp, frame)
-    
-class MotionFrameHandler(BaseHandler):
+        return AbstractFrameHandler._getFrameBytes(cameraId, timestamp, frame)
+
+class MotionFrameHandler(AbstractFrameHandler):
     
     def __init__(self, request):
         self.__logger = logging.getLogger("%s.MotionFrameHandler" % __name__)
-        BaseHandler.__init__(self, "image/jpeg", request)
+        AbstractFrameHandler.__init__(self, request)
     
-    def getBytes(self):
+    def _generateBytes(self):
         # Get this requests params
         try:
             eventId = self._request["eventId"]
@@ -110,16 +135,15 @@ class MotionFrameHandler(BaseHandler):
             raise e
         
         # Return the bytes for the snapshot frame
-        return BaseHandler._getFrameBytes(cameraId, timestamp, frame, eventId)
-    
-        
-class LiveFrameHandler(BaseHandler):
+        return AbstractFrameHandler._getFrameBytes(cameraId, timestamp, frame, eventId)
+
+class LiveFrameHandler(AbstractFrameHandler):
     
     def __init__(self, request):
         self.__logger = logging.getLogger("%s.LiveFrameHandler" % __name__)
-        BaseHandler.__init__(self, "image/jpeg", request)
-    
-    def getBytes(self):
+        AbstractFrameHandler.__init__(self, request)
+
+    def _generateBytes(self):
         # Get this requests params
         try:
             cameraId = self._request["cameraId"]
@@ -141,6 +165,46 @@ class LiveFrameHandler(BaseHandler):
                 frame = camera["lastSnapshot"]["frame"]
         
         # Return the bytes for the live frame
-        return BaseHandler._getFrameBytes(cameraId, timestamp, frame)
+        return AbstractFrameHandler._getFrameBytes(cameraId, timestamp, frame)
+    
+class LiveVideoHandler(BaseHandler):
+    def __init__(self, request):
+        self.__logger = logging.getLogger("%s.LiveVideoHandler" % __name__)
+        BaseHandler.__init__(self, request)
+        
+        self._boundary = '--boundarydonotcross'
+        
+        self._responseHeaders["Access-Control-Allow-Origin"] = "*"
+        self._responseHeaders["Cache-Control"] = "no-store, no-cache, must-revalidate, pre-check=0, post-check=0, max-age=0"
+        self._responseHeaders["Connection"] = "close"
+        self._responseHeaders["Content-Type"] = "multipart/x-mixed-replace;boundary=%s" % self._boundary
+        self._responseHeaders["Expires"] = "Mon, 3 Jan 2000 12:34:56 GMT"
+        self._responseHeaders["Pragma"] = "no-cache"
         
 
+    def next(self):
+        
+        frameBytes = LiveFrameHandler(self._request).next()
+        
+        imageHeaders = {'X-Timestamp': time.time(),
+                        'Content-Length': len(frameBytes),
+                        'Content-Type': 'image/jpeg'
+                        }
+
+        bytes = []
+        # Provide the boundary
+        bytes.append(self._boundary)
+        bytes.append("\r\n")
+        
+        # Provide the image header
+        for k, v in imageHeaders.items():
+            bytes.append("%s: %s" % (k, v))
+        bytes.append("\r\n")
+        
+        # Provide an empty line
+        bytes.append("\r\n")
+        
+        # Provide the image data
+        bytes.append(frameBytes)
+        bytes.append("\r\n")
+        return "".join(bytes)

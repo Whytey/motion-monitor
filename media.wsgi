@@ -6,7 +6,7 @@ import json
 import re
 import socket
 import sys
-from monitor.stream.handlers import SnapshotFrameHandler, MotionFrameHandler, LiveFrameHandler
+from monitor.stream.handlers import SnapshotFrameHandler, MotionFrameHandler, LiveFrameHandler, LiveVideoHandler
 
 
 JSON_TYPE = "JSON"
@@ -74,15 +74,14 @@ def __error_response(start_response, http_status, error_msg):
     return [error_msg]
 
 def __byte_response(start_response, handler):
-    
-    bytes = handler.getBytes()
-    
-    # Need to check if this allow-origin is really needed.    
-    response_headers = [('Access-Control-Allow-Origin', "*"),
-                        ('Content-Type', handler.contentType),
-                        ('Content-Length', str(len(bytes)))]
+    response_headers = []
+    for k, v in handler.getResponseHeaders().items():
+        response_headers.append((k, v))
+        
     start_response(HTTP_200, response_headers)
-    return [bytes]
+    
+    # handler is an Iterator
+    return handler
 
 def application(environ, start_response):
     request_method = environ["REQUEST_METHOD"].lower()
@@ -107,11 +106,15 @@ def application(environ, start_response):
             handler = MotionFrameHandler(data)
         elif request_type.lower() == "liveframe":
             handler = LiveFrameHandler(data)
+        elif request_type.lower() == "livevideo":
+            handler = LiveVideoHandler(data)
         else:
             raise KeyError("Unknown method requested: %s" % request_type)
         return __byte_response(start_response, handler)
     except Exception as e:
         # Socket errors
+        import traceback
+        traceback.print_exc()
         return __error_response(start_response, HTTP_500, 'Error processing request: %s' % e)
         
 
