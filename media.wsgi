@@ -7,7 +7,7 @@ import re
 import socket
 import sys
 import monitor.stream.handlers
-from monitor.stream.handlers import SnapshotHandler
+from monitor.stream.handlers import SnapshotFrameHandler
 
 
 JSON_TYPE = "JSON"
@@ -102,8 +102,8 @@ def application(environ, start_response):
         return __error_response(start_response, HTTP_503, 'Invalid request: %s' % e)
     
     try:
-        if request_type == "snapshot":
-            handler = SnapshotHandler(data)
+        if request_type.lower() == "SnapshotFrame":
+            handler = SnapshotFrameHandler(data)
         return __byte_response(start_response, handler)
     except Exception as e:
         # Socket errors
