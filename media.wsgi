@@ -7,7 +7,7 @@ import re
 import socket
 import sys
 import monitor.stream.handlers
-from monitor.stream.handlers import SnapshotFrameHandler
+from monitor.stream.handlers import SnapshotFrameHandler, LiveFrameHandler
 
 
 JSON_TYPE = "JSON"
@@ -102,8 +102,12 @@ def application(environ, start_response):
         return __error_response(start_response, HTTP_503, 'Invalid request: %s' % e)
     
     try:
-        if request_type.lower() == "SnapshotFrame":
+        if request_type.lower() == "snapshotframe":
             handler = SnapshotFrameHandler(data)
+        elif request_type.lower() == "liveframe":
+            handler = LiveFrameHandler(data)
+        else:
+            raise KeyError("Unknown request: %s" % request_type)
         return __byte_response(start_response, handler)
     except Exception as e:
         # Socket errors

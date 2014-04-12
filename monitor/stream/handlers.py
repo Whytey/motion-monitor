@@ -15,7 +15,7 @@ def _request_data(data):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-    sock.connect(('localhost', 8889))
+    sock.connect(('192.168.0.100', 8889))
     sock.send(json.dumps(data))
     rxd_data = []
     while True:
@@ -40,8 +40,27 @@ class BaseHandler(object):
         return self._contentType
     
     @abstractmethod
-    def getBytes(self, requestParams):
+    def getBytes(self):
         pass
+    
+    @staticmethod
+    def _getFrameBytes(cameraId, timestamp, frame):
+        # Request the data in JSON format
+        request = {"method": "image.get",
+                   "params": {"timestamp": timestamp, 
+                              "type": "2", 
+                              "cameraid": cameraId,
+                              "frame": frame, 
+                              "include_image": "True"}
+                   }
+        response = _request_data(request)
+        response_json = json.loads(response)
+        
+        # Extract the image from it and return the bytes
+        imageBytes = response_json["result"][0]["image"]
+        decodedBytes = base64.b64decode(imageBytes)
+
+        return decodedBytes
             
 
 class SnapshotFrameHandler(BaseHandler):
@@ -51,30 +70,18 @@ class SnapshotFrameHandler(BaseHandler):
         BaseHandler.__init__(self, "image/jpeg", request)
 
     
-    def getBytes(self, requestParams):
+    def getBytes(self):
         # Get this requests params
         try:
-            cameraId = requestParams["cameraId"]
-            timestamp = requestParams["timestamp"]
-            frame = requestParams["frame"]
+            cameraId = self._request["cameraId"]
+            timestamp = self._request["timestamp"]
+            frame = self._request["frame"]
         except KeyError, e:
             # One of the above required values are not provided in the request
             raise e
         
-        request = {"method": "image.get",
-                   "params": {"timestamp": timestamp, 
-                              "type": "2", 
-                              "cameraid": cameraId,
-                              "frame": frame, 
-                              "include_image": "True"}
-                   }
-        
-        response = _request_data(request)
-        response_json = json.loads(response)
-        imageBytes = response_json["result"][0]["image"]
-        decodedBytes = base64.b64decode(imageBytes)
-
-        return decodedBytes
+        # Return the bytes for the snapshot frame
+        return BaseHandler._getFrameBytes(cameraId, timestamp, frame)
         
 class LiveFrameHandler(BaseHandler):
     
@@ -83,22 +90,28 @@ class LiveFrameHandler(BaseHandler):
         BaseHandler.__init__(self, "image/jpeg", request)
 
     
-    def getBytes(self, requestParams):
+    def getBytes(self):
+        # Get this requests params
+        try:
+            cameraId = self._request["cameraId"]
+        except KeyError, e:
+            # One of the above required values are not provided in the request
+            raise e
+
         # Get the latest camera summary
         request = {"method": "camera.get",
                    "params": {}
                    }
-        
         response = _request_data(request)
         response_json = json.loads(response)
         
+        # Get this cameras details from the summary
         for camera in response_json["result"]:
-            if camera["cameraId"] == "1":
+            if camera["cameraId"] == cameraId:
                 timestamp = camera["lastSnapshot"]["timestamp"]
+                frame = camera["lastSnapshot"]["frame"]
         
-        imageBytes = response_json["result"][0]["image"]
-        decodedBytes = base64.b64decode(imageBytes)
-
-        return decodedBytes
+        # Return the bytes for the live frame
+        return BaseHandler._getFrameBytes(cameraId, timestamp, frame)
         
 

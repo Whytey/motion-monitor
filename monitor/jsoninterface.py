@@ -139,6 +139,7 @@ class SnapshotImage(Image):
 class JSONInterface():
     
     __SERVER_ADDR = '127.0.0.1'
+    __SERVER_ADDR = '192.168.0.100'
     __SERVER_PORT = 8889
     
     _CONFIG_target_dir = '/data/motion/'
