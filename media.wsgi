@@ -6,7 +6,6 @@ import json
 import re
 import socket
 import sys
-import monitor.stream.handlers
 from monitor.stream.handlers import SnapshotFrameHandler, MotionFrameHandler, LiveFrameHandler
 
 

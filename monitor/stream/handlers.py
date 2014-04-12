@@ -104,7 +104,7 @@ class MotionFrameHandler(BaseHandler):
             raise e
         
         # Return the bytes for the snapshot frame
-        return BaseHandler._getFrameBytes(cameraId, timestamp, frame)
+        return BaseHandler._getFrameBytes(cameraId, timestamp, frame, eventId)
     
         
 class LiveFrameHandler(BaseHandler):
