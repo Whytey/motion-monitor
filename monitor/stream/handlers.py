@@ -44,7 +44,7 @@ class BaseHandler(object):
         pass
     
     @staticmethod
-    def _getFrameBytes(cameraId, timestamp, frame):
+    def _getFrameBytes(cameraId, timestamp, frame, eventId=None):
         # Request the data in JSON format
         request = {"method": "image.get",
                    "params": {"timestamp": timestamp, 
@@ -53,6 +53,10 @@ class BaseHandler(object):
                               "frame": frame, 
                               "include_image": "True"}
                    }
+        if eventId:
+            request["params"]["type"] = 1
+            request["params"]["event"] = eventId
+            
         response = _request_data(request)
         response_json = json.loads(response)
         
@@ -68,7 +72,6 @@ class SnapshotFrameHandler(BaseHandler):
     def __init__(self, request):
         self.__logger = logging.getLogger("%s.SnapshotFrameHandler" % __name__)
         BaseHandler.__init__(self, "image/jpeg", request)
-
     
     def getBytes(self):
         # Get this requests params
@@ -82,13 +85,33 @@ class SnapshotFrameHandler(BaseHandler):
         
         # Return the bytes for the snapshot frame
         return BaseHandler._getFrameBytes(cameraId, timestamp, frame)
+    
+class MotionFrameHandler(BaseHandler):
+    
+    def __init__(self, request):
+        self.__logger = logging.getLogger("%s.MotionFrameHandler" % __name__)
+        BaseHandler.__init__(self, "image/jpeg", request)
+    
+    def getBytes(self):
+        # Get this requests params
+        try:
+            eventId = self._request["eventId"]
+            cameraId = self._request["cameraId"]
+            timestamp = self._request["timestamp"]
+            frame = self._request["frame"]
+        except KeyError, e:
+            # One of the above required values are not provided in the request
+            raise e
+        
+        # Return the bytes for the snapshot frame
+        return BaseHandler._getFrameBytes(cameraId, timestamp, frame)
+    
         
 class LiveFrameHandler(BaseHandler):
     
     def __init__(self, request):
         self.__logger = logging.getLogger("%s.LiveFrameHandler" % __name__)
         BaseHandler.__init__(self, "image/jpeg", request)
-
     
     def getBytes(self):
         # Get this requests params

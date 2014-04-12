@@ -7,7 +7,7 @@ import re
 import socket
 import sys
 import monitor.stream.handlers
-from monitor.stream.handlers import SnapshotFrameHandler, LiveFrameHandler
+from monitor.stream.handlers import SnapshotFrameHandler, MotionFrameHandler, LiveFrameHandler
 
 
 JSON_TYPE = "JSON"
@@ -104,10 +104,12 @@ def application(environ, start_response):
     try:
         if request_type.lower() == "snapshotframe":
             handler = SnapshotFrameHandler(data)
+        elif request_type.lower() == "motionframe":
+            handler = MotionFrameHandler(data)
         elif request_type.lower() == "liveframe":
             handler = LiveFrameHandler(data)
         else:
-            raise KeyError("Unknown request: %s" % request_type)
+            raise KeyError("Unknown method requested: %s" % request_type)
         return __byte_response(start_response, handler)
     except Exception as e:
         # Socket errors
