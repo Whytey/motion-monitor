@@ -1,5 +1,5 @@
 function IO(widget, refreshRate) {
-	this.url = "http://192.168.0.100/motion-monitor/json";
+	this.url = "json";
 	this.widget = widget;
 	this.refreshRate = refreshRate;
 	

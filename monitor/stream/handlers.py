@@ -24,6 +24,9 @@ def _request_data(data):
         rxd_data.append(data)
     return ''.join(rxd_data)
 
+def getHandler(requestData):
+    pass
+
 class BaseHandler(object):
     __metaclass__ = ABCMeta
 
@@ -31,30 +34,38 @@ class BaseHandler(object):
         self.__logger = logging.getLogger("%s.BaseHandler" % __name__)
         self._contentType = contentType
         self._request = request
-        print ("Created")
         
     @property
     def contentType(self):
         return self._contentType
     
     @abstractmethod
-    def getBytes(self):
+    def getBytes(self, requestParams):
         pass
             
 
-class SnapshotHandler(BaseHandler):
+class SnapshotFrameHandler(BaseHandler):
     
     def __init__(self, request):
-        self.__logger = logging.getLogger("%s.SnapshotHandler" % __name__)
-        print ("Calling super")
+        self.__logger = logging.getLogger("%s.SnapshotFrameHandler" % __name__)
         BaseHandler.__init__(self, "image/jpeg", request)
 
     
-    def getBytes(self):
+    def getBytes(self, requestParams):
+        # Get this requests params
+        try:
+            cameraId = requestParams["cameraId"]
+            timestamp = requestParams["timestamp"]
+            frame = requestParams["frame"]
+        except KeyError, e:
+            # One of the above required values are not provided in the request
+            raise e
+        
         request = {"method": "image.get",
-                   "params": {"timestamp": "20140401120000", 
+                   "params": {"timestamp": timestamp, 
                               "type": "2", 
-                              "cameraid": "1", 
+                              "cameraid": cameraId,
+                              "frame": frame, 
                               "include_image": "True"}
                    }
         
@@ -65,3 +76,29 @@ class SnapshotHandler(BaseHandler):
 
         return decodedBytes
         
+class LiveFrameHandler(BaseHandler):
+    
+    def __init__(self, request):
+        self.__logger = logging.getLogger("%s.LiveFrameHandler" % __name__)
+        BaseHandler.__init__(self, "image/jpeg", request)
+
+    
+    def getBytes(self, requestParams):
+        # Get the latest camera summary
+        request = {"method": "camera.get",
+                   "params": {}
+                   }
+        
+        response = _request_data(request)
+        response_json = json.loads(response)
+        
+        for camera in response_json["result"]:
+            if camera["cameraId"] == "1":
+                timestamp = camera["lastSnapshot"]["timestamp"]
+        
+        imageBytes = response_json["result"][0]["image"]
+        decodedBytes = base64.b64decode(imageBytes)
+
+        return decodedBytes
+        
+
