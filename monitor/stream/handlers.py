@@ -6,6 +6,7 @@ Created on 09/04/2014
 
 from abc import ABCMeta, abstractmethod
 import base64
+import datetime
 import json
 import logging
 import socket
@@ -167,11 +168,11 @@ class LiveFrameHandler(AbstractFrameHandler):
         # Return the bytes for the live frame
         return AbstractFrameHandler._getFrameBytes(cameraId, timestamp, frame)
     
-class LiveVideoHandler(BaseHandler):
+class AbstractVideoHandler(BaseHandler):
     def __init__(self, request):
-        self.__logger = logging.getLogger("%s.LiveVideoHandler" % __name__)
+        self.__logger = logging.getLogger("%s.AbstractVideoHandler" % __name__)
         BaseHandler.__init__(self, request)
-        
+    
         self._boundary = '--boundarydonotcross'
         
         self._responseHeaders["Access-Control-Allow-Origin"] = "*"
@@ -181,30 +182,69 @@ class LiveVideoHandler(BaseHandler):
         self._responseHeaders["Expires"] = "Mon, 3 Jan 2000 12:34:56 GMT"
         self._responseHeaders["Pragma"] = "no-cache"
         
-
+    @abstractmethod
+    def _generateFrameBytes(self):
+        pass
+        
     def next(self):
         
-        frameBytes = LiveFrameHandler(self._request).next()
+        frameBytes = self._generateFrameBytes()
         
         imageHeaders = {'X-Timestamp': time.time(),
                         'Content-Length': len(frameBytes),
                         'Content-Type': 'image/jpeg'
                         }
 
-        bytes = []
+        frameResponse = []
         # Provide the boundary
-        bytes.append(self._boundary)
-        bytes.append("\r\n")
+        frameResponse.append(self._boundary)
+        frameResponse.append("\r\n")
         
         # Provide the image header
         for k, v in imageHeaders.items():
-            bytes.append("%s: %s" % (k, v))
-        bytes.append("\r\n")
+            frameResponse.append("%s: %s" % (k, v))
+            frameResponse.append("\r\n")
         
         # Provide an empty line
-        bytes.append("\r\n")
+        frameResponse.append("\r\n")
         
         # Provide the image data
-        bytes.append(frameBytes)
-        bytes.append("\r\n")
-        return "".join(bytes)
+        frameResponse.append(frameBytes)
+        frameResponse.append("\r\n")
+        return "".join(frameResponse)
+        
+class LiveVideoHandler(AbstractVideoHandler):
+    def __init__(self, request):
+        self.__logger = logging.getLogger("%s.LiveVideoHandler" % __name__)
+        AbstractVideoHandler.__init__(self, request)
+        LiveFrameHandler(self._request).next()
+
+    def _generateFrameBytes(self):
+        return LiveFrameHandler(self._request)._generateBytes()
+
+    
+class TimelapseVideoHandler(AbstractVideoHandler):
+    def __init__(self, request):
+        self.__logger = logging.getLogger("%s.TimelapseVideoHandler" % __name__)
+        AbstractVideoHandler.__init__(self, request)
+        
+        try:
+            self._cameraId = self._request["cameraId"]
+            fromTimestamp = datetime.datetime.strptime(self._request["fromTimestamp"], '%Y%m%d%H%M%S')
+#            toTimestamp = self._request["toTimestamp"]
+        except KeyError, e:
+            # One of the above required values are not provided in the request
+            raise e
+
+        # Generate the files to stream
+        twoSeconds = datetime.timedelta(seconds=2)
+        
+        self._timestamps = []
+        for i in range(100):
+            self._timestamps.append(fromTimestamp + i * twoSeconds)
+
+    def _generateFrameBytes(self):
+        request = {"cameraId" : self._cameraId,
+                   "timestamp": self._timestamps.pop(0),
+                   "frame": "00"}
+        return SnapshotFrameHandler(request)._generateBytes()
