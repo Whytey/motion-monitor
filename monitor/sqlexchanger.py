@@ -4,6 +4,7 @@ Created on 22/01/2014
 @author: djwhyte
 '''
 import logging
+import datetime
 import MySQLdb
 
 class DB():
@@ -244,6 +245,8 @@ class SQLWriter():
         try:
             cursor = self.__connection.cursor()
             
+            timeNow = datetime.datetime.now()
+            
             # First create the temporary table
             query = """CREATE
                        TEMPORARY TABLE IF NOT EXISTS retain_frames (INDEX idx_time_camera (timestamp, camera_id))AS
@@ -257,15 +260,15 @@ class SQLWriter():
                                        frame,
                                        filename
                                 FROM snapshot_frame a
-                                WHERE timestamp >= subdate(now(), INTERVAL 7 DAY))
+                                WHERE timestamp >= subdate(%s, INTERVAL 7 DAY))
                              UNION
                                (SELECT camera_id,
                                        timestamp,
                                        frame,
                                        filename
                                 FROM snapshot_frame b
-                                WHERE timestamp < subdate(now(), INTERVAL 7 DAY)
-                                  AND timestamp >= subdate(now(), INTERVAL 4 WEEK)
+                                WHERE timestamp < subdate(%s, INTERVAL 7 DAY)
+                                  AND timestamp >= subdate(%s, INTERVAL 4 WEEK)
                                   AND minute(timestamp) = 0
                                 GROUP BY camera_id,
                                          date(timestamp),
@@ -277,8 +280,8 @@ class SQLWriter():
                                        frame,
                                        filename
                                 FROM snapshot_frame c
-                                WHERE timestamp < subdate(now(), INTERVAL 4 WEEK)
-                                  AND timestamp >= subdate(now(), INTERVAL 3 MONTH)
+                                WHERE timestamp < subdate(%s, INTERVAL 4 WEEK)
+                                  AND timestamp >= subdate(%s, INTERVAL 3 MONTH)
                                   AND hour(timestamp) IN (6,
                                                           12,
                                                           18)
@@ -293,21 +296,30 @@ class SQLWriter():
                                        frame,
                                        filename
                                 FROM snapshot_frame d
-                                WHERE timestamp < subdate(now(), INTERVAL 3 MONTH)
+                                WHERE timestamp < subdate(%s, INTERVAL 3 MONTH)
                                   AND hour(timestamp) = 12
                                   AND minute(timestamp) = 0
                                 GROUP BY camera_id,
                                          date(timestamp),
                                          hour(timestamp),
-                                         minute(timestamp))) e"""
+                                         minute(timestamp))) e""" % (timeNow, 
+                                                                     timeNow, 
+                                                                     timeNow, 
+                                                                     timeNow, 
+                                                                     timeNow, 
+                                                                     timeNow)
                                                      
+            self.__logger.debug("About to run query: %s" % query)
+            cursor.execute(query)
+
             # Select just the snapshot filenames that are stale
             query = """SELECT camera_id,
                               timestamp,
                               frame,
                               filename
                        FROM snapshot_frame a
-                       WHERE NOT EXISTS
+                       WHERE timestamp < %s
+                         AND NOT EXISTS
                            (SELECT camera_id,
                                    timestamp,
                                    frame,
@@ -315,7 +327,7 @@ class SQLWriter():
                             FROM retain_frames b
                             WHERE a.camera_id = b.camera_id
                               AND a.timestamp = b.timestamp
-                              AND a.frame = b.frame)"""
+                              AND a.frame = b.frame)""" % timeNow
 
             self.__logger.debug("About to run query: %s" % query)
             cursor.execute(query)
