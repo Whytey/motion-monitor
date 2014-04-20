@@ -108,8 +108,8 @@ class SQLWriter():
             self.__connection.rollback()
             raise
         
-    def get_stale_snapshot_frames(self):
-        self.__logger.debug("Listing stale snapshots in the DB")
+    def get_timelapse_snapshot_frames_minute(self):
+        self.__logger.debug("Listing snapshots in the DB for by the minute timelapse")
         try:
             cursor = self.__connection.cursor()
             
@@ -119,16 +119,204 @@ class SQLWriter():
                               frame,
                               filename
                        FROM snapshot_frame
-                       WHERE ((timestamp < subdate(now(), INTERVAL 7 DAY)
-                               AND minute(timestamp) != 0)
-                              OR (timestamp < subdate(now(), INTERVAL 4 WEEK)
-                                  AND (hour(timestamp) NOT IN (6,
-                                                               12,
-                                                               18)
-                                       OR minute(timestamp) != 0))
-                              OR (timestamp < subdate(now(), INTERVAL 3 MONTH)
-                                  AND (hour(timestamp) != 12
-                                       OR minute(timestamp) != 0)))"""
+                       WHERE camera_id = %s
+                         AND timestamp >= %s
+                       LIMIT %s"""
+            self.__logger.debug("About to run query: %s" % query)
+            cursor.execute(query)
+            
+            snapshots = cursor.fetchall()
+            return snapshots
+        except Exception as e:
+            self.__logger.exception(e)
+            self.__connection.rollback()
+            raise
+
+    def get_timelapse_snapshot_frames_hour(self):
+        self.__logger.debug("Listing snapshots in the DB for by the hour timelapse")
+        try:
+            cursor = self.__connection.cursor()
+            
+            # Select just the snapshot filenames that are stale
+            query = """SELECT camera_id,
+                              timestamp,
+                              frame,
+                              filename
+                       FROM snapshot_frame
+                       WHERE camera_id = %s
+                         AND timestamp >= %s
+                         AND second(timestamp) = 0
+                       LIMIT %s"""
+            self.__logger.debug("About to run query: %s" % query)
+            cursor.execute(query)
+            
+            snapshots = cursor.fetchall()
+            return snapshots
+        except Exception as e:
+            self.__logger.exception(e)
+            self.__connection.rollback()
+            raise
+
+    def get_timelapse_snapshot_frames_day(self):
+        self.__logger.debug("Listing snapshots in the DB for by the day timelapse")
+        try:
+            cursor = self.__connection.cursor()
+            
+            # Select just the snapshot filenames that are stale
+            query = """SELECT camera_id,
+                              timestamp,
+                              frame,
+                              filename
+                       FROM snapshot_frame
+                       WHERE camera_id = %s
+                         AND timestamp >= %s
+                         AND minute(timestamp) = 0
+                         AND second(timestamp) = 0
+                       LIMIT %s"""
+            self.__logger.debug("About to run query: %s" % query)
+            cursor.execute(query)
+            
+            snapshots = cursor.fetchall()
+            return snapshots
+        except Exception as e:
+            self.__logger.exception(e)
+            self.__connection.rollback()
+            raise
+
+    def get_timelapse_snapshot_frames_week(self):
+        self.__logger.debug("Listing snapshots in the DB for by the week timelapse")
+        try:
+            cursor = self.__connection.cursor()
+            
+            # Select just the snapshot filenames that are stale
+            query = """SELECT camera_id,
+                              timestamp,
+                              frame,
+                              filename
+                       FROM snapshot_frame
+                       WHERE camera_id = %s
+                         AND timestamp >= %s
+                         AND hour(timestamp) IN (06,
+                                                 12,
+                                                 18)
+                         AND minute(timestamp) = 0
+                         AND second(timestamp) = 0
+                       LIMIT %s"""
+            self.__logger.debug("About to run query: %s" % query)
+            cursor.execute(query)
+            
+            snapshots = cursor.fetchall()
+            return snapshots
+        except Exception as e:
+            self.__logger.exception(e)
+            self.__connection.rollback()
+            raise
+    
+    def get_timelapse_snapshot_frames_month(self):
+        self.__logger.debug("Listing snapshots in the DB for by the month timelapse")
+        try:
+            cursor = self.__connection.cursor()
+            
+            # Select just the snapshot filenames that are stale
+            query = """SELECT camera_id,
+                              timestamp,
+                              frame,
+                              filename
+                       FROM snapshot_frame
+                       WHERE camera_id = %s
+                         AND timestamp >= %s
+                         AND hour(timestamp) = 12
+                         AND minute(timestamp) = 0
+                         AND second(timestamp) = 0
+                       LIMIT %s"""
+            self.__logger.debug("About to run query: %s" % query)
+            cursor.execute(query)
+            
+            snapshots = cursor.fetchall()
+            return snapshots
+        except Exception as e:
+            self.__logger.exception(e)
+            self.__connection.rollback()
+            raise
+        
+    def get_stale_snapshot_frames(self):
+        self.__logger.debug("Listing stale snapshots in the DB")
+        try:
+            cursor = self.__connection.cursor()
+            
+            # First create the temporary table
+            query = """CREATE
+                       TEMPORARY TABLE IF NOT EXISTS retain_frames (INDEX idx_time_camera (timestamp, camera_id))AS
+                       SELECT camera_id,
+                              timestamp,
+                              frame,
+                              filename
+                       FROM (
+                               (SELECT camera_id,
+                                       timestamp,
+                                       frame,
+                                       filename
+                                FROM snapshot_frame a
+                                WHERE timestamp >= subdate(now(), INTERVAL 7 DAY))
+                             UNION
+                               (SELECT camera_id,
+                                       timestamp,
+                                       frame,
+                                       filename
+                                FROM snapshot_frame b
+                                WHERE timestamp < subdate(now(), INTERVAL 7 DAY)
+                                  AND timestamp >= subdate(now(), INTERVAL 4 WEEK)
+                                  AND minute(timestamp) = 0
+                                GROUP BY camera_id,
+                                         date(timestamp),
+                                         hour(timestamp),
+                                         minute(timestamp))
+                             UNION
+                               (SELECT camera_id,
+                                       timestamp,
+                                       frame,
+                                       filename
+                                FROM snapshot_frame c
+                                WHERE timestamp < subdate(now(), INTERVAL 4 WEEK)
+                                  AND timestamp >= subdate(now(), INTERVAL 3 MONTH)
+                                  AND hour(timestamp) IN (6,
+                                                          12,
+                                                          18)
+                                  AND minute(timestamp) = 0
+                                GROUP BY camera_id,
+                                         date(timestamp),
+                                         hour(timestamp),
+                                         minute(timestamp))
+                             UNION
+                               (SELECT camera_id,
+                                       timestamp,
+                                       frame,
+                                       filename
+                                FROM snapshot_frame d
+                                WHERE timestamp < subdate(now(), INTERVAL 3 MONTH)
+                                  AND hour(timestamp) = 12
+                                  AND minute(timestamp) = 0
+                                GROUP BY camera_id,
+                                         date(timestamp),
+                                         hour(timestamp),
+                                         minute(timestamp))) e"""
+                                                     
+            # Select just the snapshot filenames that are stale
+            query = """SELECT camera_id,
+                              timestamp,
+                              frame,
+                              filename
+                       FROM snapshot_frame a
+                       WHERE NOT EXISTS
+                           (SELECT camera_id,
+                                   timestamp,
+                                   frame,
+                                   filename
+                            FROM retain_frames b
+                            WHERE a.camera_id = b.camera_id
+                              AND a.timestamp = b.timestamp
+                              AND a.frame = b.frame)"""
+
             self.__logger.debug("About to run query: %s" % query)
             cursor.execute(query)
             
