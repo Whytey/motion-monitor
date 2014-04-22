@@ -162,6 +162,14 @@ class Camera():
         self.__last_snapshot = None
         self.__recent_motion = deque([], 10)
         
+    @property
+    def id(self):
+        return self.__cameraId
+        
+    @property
+    def state(self):
+        return self.__state
+
     def handle_activity(self, msg):
         if msg["type"] == "event_start":
             self.__state = self.STATE_ACTIVITY

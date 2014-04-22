@@ -24,8 +24,8 @@ class ZabbixWriter():
         try:
             self.__logger.debug("Handling camera activity")
         
-            camera_id = camera.get_id()
-            value = camera.get_state()
+            camera_id = camera.id
+            value = camera.state
         
             self.__logger.debug("Calling zabbix_sender with value of '%s' for key '%s' on camera %s"  % (str(value), self.__ZABBIX_KEY, camera_id))
             try:
