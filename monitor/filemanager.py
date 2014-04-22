@@ -137,11 +137,10 @@ class SweeperThread(threading.Thread):
         self.target_dir = '/data/motion'
 
         
-    def run(self):
+    def __sweep_snapshot_frames(self):
         try:
             stale_files = []
             stale_files.extend(self.__sqlwriter.get_stale_snapshot_frames())
-#            stale_files.extend(self.__sqlwriter.get_stale_motion_frames())
             
             self.__logger.info("Have %s files to delete" % len(stale_files))
 
@@ -152,7 +151,7 @@ class SweeperThread(threading.Thread):
                 if os.path.exists(filename):
                     self.__logger.debug("Deleting stale file: %s" % filename)
                     delete_path(filename)
-                    deletedFiles.append((cameraId, timestamp, filename))
+                    deletedFiles.append((cameraId, timestamp, frame))
                     deletedPaths.add(os.path.dirname(filename))
                     
                 if len(deletedFiles) > 50:
@@ -164,13 +163,51 @@ class SweeperThread(threading.Thread):
             self.__logger.debug("Deleting remaining stale DB entries: %s" % deletedFiles)
             self.__sqlwriter.delete_snapshot_frame(deletedFiles)
             
+            self.__logger.debug("Deleting empty paths now")
             for path in deletedPaths:
-                self.__logger.debug("Deleting empty paths now")
                 delete_dir_if_empty(path, True)
 
         except Exception as e:
             self.__logger.exception(e)
             raise        
+
+    def __sweep_motion_frames(self):
+        try:
+            stale_files = []
+            stale_files.extend(self.__sqlwriter.get_stale_motion_frames())
+            
+            self.__logger.info("Have %s files to delete" % len(stale_files))
+
+            # Get the filepath from the returned rowset tuple
+            deletedFiles = []
+            deletedPaths = set()
+            for (eventId, cameraId, timestamp, frame, filename) in stale_files:
+                if os.path.exists(filename):
+                    self.__logger.debug("Deleting stale file: %s" % filename)
+                    delete_path(filename)
+                    deletedFiles.append((eventId, cameraId, timestamp, frame))
+                    deletedPaths.add(os.path.dirname(filename))
+                    
+                if len(deletedFiles) > 50:
+                    self.__logger.debug("Deleting stale DB entries: %s" % deletedFiles)
+                    self.__sqlwriter.delete_motion_frame(deletedFiles)
+                    deletedFiles = []
+                    
+            # Cleanup, in case these were missed in the loop
+            self.__logger.debug("Deleting remaining stale DB entries: %s" % deletedFiles)
+            self.__sqlwriter.delete_motion_frame(deletedFiles)
+            
+            self.__logger.debug("Deleting empty paths now")
+            for path in deletedPaths:
+                delete_dir_if_empty(path, True)
+
+        except Exception as e:
+            self.__logger.exception(e)
+            raise    
+        
+    def run(self):
+        self.__sweep_snapshot_frames()
+        self.__sweep_motion_frames()    
     
 class Sweeper():
     

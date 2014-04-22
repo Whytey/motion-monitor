@@ -88,15 +88,28 @@ class SQLWriter():
         self.__run_query(query, events)
         
     def delete_snapshot_frame(self, frames):
-        self.__logger.debug("Deleting snapshots from the DB: %s" % frames)
+        self.__logger.debug("Deleting snapshot frames from the DB: %s" % frames)
         # If the list contains frames, remove them from the DB
         if frames:
             query = """DELETE
                        FROM snapshot_frame
                        WHERE camera_id = %s
-                       AND TIMESTAMP = %s
+                       AND timestamp = %s
                        AND frame = %s"""
         self.__run_query(query, frames)
+        
+    def delete_motion_frame(self, frames):
+        self.__logger.debug("Deleting motion frames from the DB: %s" % frames)
+        # If the list contains frames, remove them from the DB
+        if frames:
+            query = """DELETE
+                       FROM motion_frame
+                       WHERE event_id = %s
+                       AND camera_id = %s
+                       AND timestamp = %s
+                       AND frame = %s"""
+        self.__run_query(query, frames)
+
         
     def get_timelapse_snapshot_frames_minute(self):
         self.__logger.debug("Listing snapshots in the DB for by the minute timelapse")
@@ -264,7 +277,7 @@ class SQLWriter():
         # First, delete the events that are stale
         query = """DELETE
                    FROM motion_event
-                   WHERE starttime < subdate(now(), interval 7 DAY)"""
+                   WHERE start_time < subdate(now(), interval 7 DAY)"""
         self.__run_query(query)
 
         # Select just the motion filenames that are stale
