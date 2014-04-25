@@ -37,6 +37,9 @@ class AuditorThread(threading.Thread):
     
         # Extract the following from the config
         self.snapshot_filename = 'snapshots/camera%t/%Y/%m/%d/%H/%M/%S-snapshot.jpg'
+
+        # Extract the following from the config
+        self.motion_filename = 'motion/camera%t/%Y%m%d/%C/%Y%m%d-%H%M%S-%q.jpg'
         
 
     @staticmethod
@@ -60,7 +63,7 @@ class AuditorThread(threading.Thread):
         camera = camera_folder.replace("camera", "")
         return camera
     
-    def __get_timestamp_from_filepath(self, filepath):
+    def __get_timestamp_from_snapshot_filepath(self, filepath):
         year = self.__split_all(filepath)[5]
         month = self.__split_all(filepath)[6]
         day = self.__split_all(filepath)[7]
@@ -70,7 +73,22 @@ class AuditorThread(threading.Thread):
         secs = secs_file.replace("-snapshot.jpg", "")
         return "%s%s%s%s%s%s" % (year, month, day, hours, mins, secs)
 
-    def run(self):
+    def __get_timestamp_from_motion_filepath(self, filepath):
+        filename = self.__split_all(filepath)[7]
+        date = filename.split("-")[0]
+        time = filename.split("-")[1]
+        return "%s%s" % (date, time)
+    
+    def __get_event_from_motion_filepath(self, filepath):
+        return self.__split_all(filepath)[6]
+    
+    def __get_frame_from_motion_filepath(self, filepath):
+        filename = self.__split_all(filepath)[7]
+        filename = filename.remove(".jpg")
+        frame = filename.split("-")[2]
+        return frame
+
+    def __audit_snapshot_frames(self):
         try:
             insertedFiles = []
             for root, dirs, files in os.walk(self.target_dir, topdown=True):
@@ -84,7 +102,7 @@ class AuditorThread(threading.Thread):
                     filepath = os.path.join(root, filename)
                     
                     row = (self.__get_camera_from_filepath(filepath),
-                           self.__get_timestamp_from_filepath(filepath),
+                           self.__get_timestamp_from_snapshot_filepath(filepath),
                            0,
                            filepath)
                     
@@ -102,6 +120,48 @@ class AuditorThread(threading.Thread):
         except Exception as e:
             self.__logger.exception(e)
             raise
+
+    def __audit_motion_frames(self):
+        try:
+            insertedFiles = []
+            for root, dirs, files in os.walk(self.target_dir, topdown=True):
+                
+                # Hack! Only worry about motion files.
+                if not root.startswith('/data/motion/motion'): continue
+                
+                delete_dir_if_empty(root, True)
+                
+                for filename in files:
+                    filepath = os.path.join(root, filename)
+                    
+                    row = (self.__get_event_from_motion_filepath(filepath),
+                           self.__get_camera_from_filepath(filepath),
+                           self.__get_timestamp_from_motion_filepath(filepath),
+                           self.__get_frame_from_motion_filepath(filepath),
+                           0,
+                           filepath)
+                    
+                    self.__logger.debug("Inserting the following motion file: %s" % str(row))
+                    insertedFiles.append(row)
+                    
+                    if len(insertedFiles) > 50:
+                        self.__logger.debug("Inserting DB entries: %s" % insertedFiles)
+                        self.__sqlwriter.insert_motion_frames(insertedFiles)
+                        insertedFiles = []
+                    
+            # Insert the file into the DB
+            self.__logger.debug("Inserting remaining DB entries: %s" % insertedFiles)
+            self.__sqlwriter.insert_motion_frames(insertedFiles)
+        except Exception as e:
+            self.__logger.exception(e)
+            raise
+        
+    def run(self):
+        self.__logger.info("Auditing the snapshot frames")
+        self.__audit_snapshot_frames()
+        self.__logger.info("Auditing the motion frames")
+        self.__audit_motion_frames()   
+
 
 class Auditor():
     
@@ -154,7 +214,7 @@ class SweeperThread(threading.Thread):
                     deletedFiles.append((cameraId, timestamp, frame))
                     deletedPaths.add(os.path.dirname(filename))
                     
-                if len(deletedFiles) > 50:
+                if len(deletedFiles) > 100:
                     self.__logger.debug("Deleting stale DB entries: %s" % deletedFiles)
                     self.__sqlwriter.delete_snapshot_frame(deletedFiles)
                     deletedFiles = []
@@ -188,7 +248,7 @@ class SweeperThread(threading.Thread):
                     deletedFiles.append((eventId, cameraId, timestamp, frame))
                     deletedPaths.add(os.path.dirname(filename))
                     
-                if len(deletedFiles) > 50:
+                if len(deletedFiles) > 200:
                     self.__logger.debug("Deleting stale DB entries: %s" % deletedFiles)
                     self.__sqlwriter.delete_motion_frame(deletedFiles)
                     deletedFiles = []
@@ -206,7 +266,9 @@ class SweeperThread(threading.Thread):
             raise    
         
     def run(self):
+        self.__logger.info("Sweeping the snapshot frames")
         self.__sweep_snapshot_frames()
+        self.__logger.info("Sweeping the snapshot frames")
         self.__sweep_motion_frames()    
     
 class Sweeper():
