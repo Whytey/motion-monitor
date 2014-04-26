@@ -211,6 +211,7 @@ class AbstractVideoHandler(BaseHandler):
         # Provide the image data
         frameResponse.append(frameBytes)
         frameResponse.append("\r\n")
+        time.sleep(1)
         return "".join(frameResponse)
         
 class LiveVideoHandler(AbstractVideoHandler):
@@ -224,27 +225,32 @@ class LiveVideoHandler(AbstractVideoHandler):
 
     
 class TimelapseVideoHandler(AbstractVideoHandler):
+    # The possible units expressed as {unit: (time interval, max history)}
+    __UNITS = {"minute": (datetime.timedelta(seconds=2), datetime.timedelta(days=-7)),
+               "hour": (datetime.timedelta(minute=1), datetime.timedelta(days=-7)),
+               "day": (datetime.timedelta(hours=1), datetime.timedelta(weeks=-4)),
+               "week": (datetime.timedelta(hours=6), datetime.timedelta(months=-3)),
+               "month": (datetime.timedelta(hours=24), datetime.timedelta(years=-100)),}
+    
     def __init__(self, request):
         self.__logger = logging.getLogger("%s.TimelapseVideoHandler" % __name__)
         AbstractVideoHandler.__init__(self, request)
         
         try:
             self._cameraId = self._request["cameraId"]
+            timeInterval, maxHistory = self.__UNITS[self._request["unit"]]
             fromTimestamp = datetime.datetime.strptime(self._request["fromTimestamp"], '%Y%m%d%H%M%S')
-#            toTimestamp = self._request["toTimestamp"]
-        except KeyError, e:
+            count = int(self._request["count"])
+        except Exception, e:
             # One of the above required values are not provided in the request
             raise e
 
-        # Generate the files to stream
-        twoSeconds = datetime.timedelta(seconds=2)
-        
         self._timestamps = []
-        for i in range(100):
-            self._timestamps.append(fromTimestamp + i * twoSeconds)
+        for i in range(count):
+            self._timestamps.append(fromTimestamp + i * timeInterval)
 
     def _generateFrameBytes(self):
         request = {"cameraId" : self._cameraId,
-                   "timestamp": self._timestamps.pop(0),
+                   "timestamp": self._timestamps.pop(0).strftime('%Y%m%d%H%M%S'),
                    "frame": "00"}
         return SnapshotFrameHandler(request)._generateBytes()

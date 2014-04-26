@@ -183,9 +183,7 @@ class JSONInterface():
             self.__logger.debug("Need to handle JSON request.")
             # If it is the correct socket, read data from it.
             if fd == self.__socket.fileno():
-                self.__logger.debug("In the if.")
                 conn, addr = self.__socket.accept()
-                self.__logger.debug("Have the conn, about to read.")
                 # conn - socket to client
                 # addr - clients address
                 line = conn.recv(1024) #receive data from client
@@ -212,7 +210,7 @@ class JSONInterface():
                     response["count"] = len(results_json)
 
                 if msg["method"] == "event.get":
-                    results = Event.list(msg["params"])
+                    results = Event.get(msg["params"])
                     results_json = []
                     for result in results:
                         results_json.append(result.toJSON())
