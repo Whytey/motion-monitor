@@ -84,7 +84,7 @@ class AuditorThread(threading.Thread):
     
     def __get_frame_from_motion_filepath(self, filepath):
         filename = self.__split_all(filepath)[7]
-        filename = filename.remove(".jpg")
+        filename = filename.replace(".jpg", "")
         frame = filename.split("-")[2]
         return frame
 

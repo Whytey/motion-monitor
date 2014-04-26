@@ -175,7 +175,7 @@ class Camera():
             self.__state = self.STATE_ACTIVITY
             # We need an Event
             newEvent = Event.fromSocketMsg(msg)
-            self.__logger.debug("Created new event: %s" % newEvent)
+            self.__logger.info("Created new event: %s" % newEvent)
             self.__recent_motion.appendleft(newEvent)
             self.__logger.debug("Last motion: %s" % self.__recent_motion)
         if msg["type"] == "event_end":
