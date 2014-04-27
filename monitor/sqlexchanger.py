@@ -110,83 +110,78 @@ class SQLWriter():
                        AND frame = %s"""
         self.__run_query(query, frames)
 
-        
-    def get_timelapse_snapshot_frames_minute(self):
-        self.__logger.debug("Listing snapshots in the DB for by the minute timelapse")
+    def get_timelapse_snapshot_frames(self, cameraId, startTime, minuteCount=0, hourCount=0, dayCount=0, weekCount=0, monthCount=0):
+        self.__logger.debug("Listing snapshots in the DB for timelapse")
         # Select just the snapshot filenames that are stale
         query = """SELECT camera_id,
                           timestamp,
                           frame,
                           filename
                    FROM snapshot_frame
-                   WHERE camera_id = %s
-                     AND timestamp >= %s
-                   LIMIT %s"""
+                   WHERE camera_id = {cameraId}
+                     AND {startTime} > subdate(now(), INTERVAL 7 DAY) 
+                     AND timestamp >= {startTime}
+                     AND timestamp < adddate({startTime}, INTERVAL {minuteCount} MINUTE)
+                   UNION
+                     ( SELECT camera_id,
+                              timestamp,
+                              frame,
+                              filename
+                      FROM snapshot_frame
+                      WHERE camera_id = {cameraId}
+                        AND {startTime} > subdate(now(), INTERVAL 7 DAY)
+                        AND timestamp >= {startTime}
+                        AND timestamp < adddate({startTime}, INTERVAL {hourCount} HOUR)
+                      GROUP BY date(timestamp),
+                               hour(timestamp),
+                               minute(timestamp))
+                   UNION
+                     (SELECT camera_id,
+                             timestamp,
+                             frame,
+                             filename
+                      FROM snapshot_frame
+                      WHERE camera_id = {cameraId}
+                        AND {startTime} > subdate(now(), INTERVAL 4 WEEK)
+                        AND timestamp >= {startTime}
+                        AND timestamp < adddate({startTime}, INTERVAL {dayCount} DAY)
+                      GROUP BY date(timestamp),
+                               hour(timestamp))
+                   UNION
+                     (SELECT camera_id,
+                             timestamp,
+                             frame,
+                             filename
+                      FROM snapshot_frame
+                      WHERE camera_id = {cameraId}
+                        AND {startTime} > subdate(now(), INTERVAL 3 MONTH)
+                        AND timestamp >= {startTime}
+                        AND timestamp < adddate({startTime}, INTERVAL {weekCount} WEEK)
+                        AND hour(timestamp) IN (06,
+                                                12,
+                                                18)
+                      GROUP BY date(timestamp),
+                               hour(timestamp))
+                   UNION
+                     (SELECT camera_id,
+                             timestamp,
+                             frame,
+                             filename
+                      FROM snapshot_frame
+                      WHERE camera_id = {cameraId}
+                        AND timestamp >= {startTime}
+                        AND timestamp < adddate({startTime}, INTERVAL {monthCount} MONTH)
+                        AND hour(timestamp) = 12
+                      GROUP BY date(timestamp),
+                               hour(timestamp))""".format(cameraId=cameraId, 
+                                                          startTime=startTime, 
+                                                          minuteCount=minuteCount, 
+                                                          hourCount=hourCount, 
+                                                          dayCount=dayCount, 
+                                                          weekCount=weekCount, 
+                                                          monthCount=monthCount)
         return self.__run_query(query)
 
-    def get_timelapse_snapshot_frames_hour(self):
-        self.__logger.debug("Listing snapshots in the DB for by the hour timelapse")
-        # Select just the snapshot filenames that are stale
-        query = """SELECT camera_id,
-                          timestamp,
-                          frame,
-                          filename
-                   FROM snapshot_frame
-                   WHERE camera_id = %s
-                     AND timestamp >= %s
-                     AND second(timestamp) = 0
-                   LIMIT %s"""
-        return self.__run_query(query)
-
-    def get_timelapse_snapshot_frames_day(self):
-        self.__logger.debug("Listing snapshots in the DB for by the day timelapse")
-        # Select just the snapshot filenames that are stale
-        query = """SELECT camera_id,
-                          timestamp,
-                          frame,
-                          filename
-                   FROM snapshot_frame
-                   WHERE camera_id = %s
-                     AND timestamp >= %s
-                     AND minute(timestamp) = 0
-                     AND second(timestamp) = 0
-                   LIMIT %s"""
-        return self.__run_query(query)
-
-    def get_timelapse_snapshot_frames_week(self):
-        self.__logger.debug("Listing snapshots in the DB for by the week timelapse")
-        # Select just the snapshot filenames that are stale
-        query = """SELECT camera_id,
-                          timestamp,
-                          frame,
-                          filename
-                   FROM snapshot_frame
-                   WHERE camera_id = %s
-                     AND timestamp >= %s
-                     AND hour(timestamp) IN (06,
-                                             12,
-                                             18)
-                     AND minute(timestamp) = 0
-                     AND second(timestamp) = 0
-                   LIMIT %s"""
-        return self.__run_query(query)
-    
-    def get_timelapse_snapshot_frames_month(self):
-        self.__logger.debug("Listing snapshots in the DB for by the month timelapse")
-        # Select just the snapshot filenames that are stale
-        query = """SELECT camera_id,
-                          timestamp,
-                          frame,
-                          filename
-                   FROM snapshot_frame
-                   WHERE camera_id = %s
-                     AND timestamp >= %s
-                     AND hour(timestamp) = 12
-                     AND minute(timestamp) = 0
-                     AND second(timestamp) = 0
-                   LIMIT %s"""
-        return self.__run_query(query)
-        
     def get_stale_snapshot_frames(self):
         timeNow = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
         

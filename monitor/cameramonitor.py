@@ -27,12 +27,59 @@ class Frame():
 
     @staticmethod
     def fromSocketMsg(msg):
-        #self.__logger.debug("Creating Frame from socket message: %s" % msg)
+        # self.__logger.debug("Creating Frame from socket message: %s" % msg)
         cameraId = msg["camera"]
         timestamp = datetime.strptime(msg["timestamp"], "%Y%m%d%H%M%S")
         frameNum = msg["frame"]
         filename = msg["file"]
         return Frame(cameraId, timestamp, frameNum, filename)
+    
+    @staticmethod        
+    def get(params):
+        sqlwriter = monitor.sqlexchanger.SQLWriter(monitor.sqlexchanger.DB().getConnection())
+
+        assert "cameraId" in params, "No cameraId is specified: %s" % params
+        assert "startTime" in params, "No startTime is specified: %s" % params
+        assert "units" in params, "No units is specified: %s" % params
+        assert "count" in params, "No count is specified: %s" % params
+        
+        cameraId = params["cameraId"]        
+        startTime = params["startTime"]        
+        units = params["units"]        
+        count = params["count"]
+        
+        minuteCount = 0
+        hourCount = 0
+        dayCount = 0
+        weekCount = 0
+        monthCount = 0
+        
+        if units.lower() == "minute":
+            minuteCount = count
+        elif units.lower() == "hour":
+            hourCount = count
+        elif units.lower() == "day":
+            dayCount = count
+        elif units.lower() == "week":
+            weekCount = count
+        elif units.lower() == "month":
+            monthCount = count
+        
+        dbFrames = sqlwriter.get_timelapse_snapshot_frames(cameraId, 
+                                                           startTime, 
+                                                           minuteCount, 
+                                                           hourCount, 
+                                                           dayCount, 
+                                                           weekCount, 
+                                                           monthCount)
+        frames = []
+
+        for (cameraId, timestamp, frame, filename) in dbFrames:
+            frames.append(Frame(cameraId, timestamp, frame, filename))
+        
+        # Return the frames as a list
+        return frames
+        
 
 class EventFrame(Frame):
     
@@ -54,7 +101,7 @@ class EventFrame(Frame):
 
     @staticmethod
     def fromSocketMsg(msg):
-        #self.__logger.debug("Creating EventFrame from socket message: %s" % msg)
+        # self.__logger.debug("Creating EventFrame from socket message: %s" % msg)
         cameraId = msg["camera"]
         eventId = msg["event"]
         timestamp = datetime.strptime(msg["timestamp"], "%Y%m%d%H%M%S")
@@ -94,7 +141,7 @@ class Event():
     
     @staticmethod
     def fromSocketMsg(msg):
-        #self.__logger.debug("Creating Event from socket message: %s" % msg)
+        # self.__logger.debug("Creating Event from socket message: %s" % msg)
         eventId = msg["event"]
         cameraId = msg["camera"]
         startTime = datetime.strptime(msg["timestamp"], "%Y%m%d%H%M%S")
@@ -140,7 +187,7 @@ class Event():
         
         # Return the events as a list
         return events
-
+    
 class Camera():
     
     FTYPE_IMAGE = 1
@@ -206,8 +253,8 @@ class Camera():
         if self.__last_snapshot:
             last_snapshot_json = self.__last_snapshot.toJSON()
             
-        return {"cameraId": self.__cameraId, 
-                "state": self.__state, 
+        return {"cameraId": self.__cameraId,
+                "state": self.__state,
                 "lastSnapshot": last_snapshot_json,
                 "recentMotion": recent_motion_json}
     
@@ -217,9 +264,9 @@ class CameraMonitor(GObject.GObject):
     MOTION_DETECTED_EVENT = "motion_detected"
     
     __gsignals__ = {
-        ACTIVITY_EVENT: (GObject.SIGNAL_RUN_LAST, None, 
+        ACTIVITY_EVENT: (GObject.SIGNAL_RUN_LAST, None,
                                 (GObject.TYPE_PYOBJECT,)),
-        MOTION_DETECTED_EVENT: (GObject.SIGNAL_RUN_LAST, None, 
+        MOTION_DETECTED_EVENT: (GObject.SIGNAL_RUN_LAST, None,
                                 (GObject.TYPE_PYOBJECT,))
     }
 

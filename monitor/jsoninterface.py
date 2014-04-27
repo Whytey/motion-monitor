@@ -6,7 +6,7 @@ Created on 11/08/2013
 from PIL import Image as PILImage
 from StringIO import StringIO
 from gi.repository import GObject
-from monitor.cameramonitor import Event
+from monitor.cameramonitor import Event, Frame
 import base64
 import datetime
 import json
@@ -170,7 +170,9 @@ class JSONInterface():
         # Check we have a valid method
         assert msg["method"] in ["camera.get",
                                  "image.get",
-                                 "event.list"]
+                                 "event.list",
+                                 "event.get",
+                                 "snapshot.get"]
 
         # Check that params have been provided, not necessarily valid params.
         assert "params" in msg, "Message does not specify any parameters: %s" % msg
@@ -224,6 +226,15 @@ class JSONInterface():
                         results_json.append(result.toJSON())
                     response["result"] = results_json 
                     response["count"] = len(results_json)
+                    
+                if msg["method"] == "snapshot.get":
+                    results = Frame.get(msg["params"])
+                    results_json = []
+                    for result in results:
+                        results_json.append(result.toJSON())
+                    response["result"] = results_json 
+                    response["count"] = len(results_json)
+
         except Exception as e:
             self.__logger.exception(e)
             error = {}
