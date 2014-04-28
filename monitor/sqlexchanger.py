@@ -307,7 +307,7 @@ class SQLWriter():
 
         return self.__run_query(query)
         
-    def get_motion_event_frames(self, eventId):
+    def get_motion_event_frames(self, eventId, cameraId):
         self.__logger.debug("Listing motion event frames in the DB")
         # Select just the events within the range of provided parameters
         query = """SELECT event_id,
@@ -317,8 +317,9 @@ class SQLWriter():
                           score,
                           filename
                    FROM motion_frame
-                   WHERE event_id = %s
-                   ORDER BY timestamp""" % eventId
+                   WHERE event_id = '%s'
+                     AND camera_id = %s
+                   ORDER BY timestamp""" % (eventId, cameraId)
         return self.__run_query(query)
         
     def get_timelapse(self, fromTimestamp, toTimestamp, interval):

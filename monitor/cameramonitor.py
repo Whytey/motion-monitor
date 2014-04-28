@@ -119,14 +119,17 @@ class Event():
         self._cameraId = cameraId
         self._startTime = startTime
         self._topScoreFrame = None
+        self._frames = []
         
     def _include_frame(self, eventFrame):
         # See if this is the highest scoring frame
         if not self._topScoreFrame or (self._topScoreFrame and 
                                        eventFrame._score > self._topScoreFrame._score):
             self._topScoreFrame = eventFrame
+        # Keep track of all the frames in this event
+        self._frames.append(eventFrame)
             
-    def toJSON(self):
+    def toJSON(self, extended=False):
         self.__logger.debug("Getting JSON")
         
         topScoreFrame_json = None
@@ -137,6 +140,13 @@ class Event():
                    "cameraId": self._cameraId,
                    "startTime": self._startTime.strftime("%Y%m%d%H%M%S"),
                    "topScoreFrame": topScoreFrame_json}
+        
+        if extended:
+            frames_json = []
+            for frame in self._frames:
+                frames_json.append(frame.toJSON())
+
+            jsonstr["frames"] = frames_json
         return jsonstr
     
     @staticmethod
@@ -152,10 +162,12 @@ class Event():
         sqlwriter = monitor.sqlexchanger.SQLWriter(monitor.sqlexchanger.DB().getConnection())
 
         assert "eventId" in params, "No eventId is specified: %s" % params
+        assert "cameraId" in params, "No cameraId is specified: %s" % params
         
         eventId = params["eventId"]        
+        cameraId = params["cameraId"]        
         
-        dbFrames = sqlwriter.get_motion_event_frames(eventId)
+        dbFrames = sqlwriter.get_motion_event_frames(eventId, cameraId)
         
         events = []
         

@@ -215,7 +215,7 @@ class JSONInterface():
                     results = Event.get(msg["params"])
                     results_json = []
                     for result in results:
-                        results_json.append(result.toJSON())
+                        results_json.append(result.toJSON(True))
                     response["result"] = results_json 
                     response["count"] = len(results_json)
                 
