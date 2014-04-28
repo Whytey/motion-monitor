@@ -190,6 +190,9 @@ class AbstractVideoHandler(BaseHandler):
         
         frameBytes = self._generateFrameBytes()
         
+        if frameBytes is None:
+            raise StopIteration
+        
         imageHeaders = {'X-Timestamp': time.time(),
                         'Content-Length': len(frameBytes),
                         'Content-Type': 'image/jpeg'
@@ -211,26 +214,52 @@ class AbstractVideoHandler(BaseHandler):
         # Provide the image data
         frameResponse.append(frameBytes)
         frameResponse.append("\r\n")
-        time.sleep(1)
+        time.sleep(0.08)
         return "".join(frameResponse)
         
 class LiveVideoHandler(AbstractVideoHandler):
     def __init__(self, request):
         self.__logger = logging.getLogger("%s.LiveVideoHandler" % __name__)
         AbstractVideoHandler.__init__(self, request)
-        LiveFrameHandler(self._request).next()
 
     def _generateFrameBytes(self):
         return LiveFrameHandler(self._request)._generateBytes()
 
+class MotionVideoHandler(AbstractVideoHandler):
+    def __init__(self, request):
+        self.__logger = logging.getLogger("%s.MotionVideoHandler" % __name__)
+        AbstractVideoHandler.__init__(self, request)
+
+        try:
+            self._cameraId = self._request["cameraId"]
+            eventId = self._request["eventId"]
+        except Exception, e:    
+            # One of the above required values are not provided in the request
+            raise e
+
+        self._frames = []
+        # Get the timelapse snapshots
+        request = {"method": "event.get",
+                   "params": {"cameraId": self._cameraId,
+                              "eventId": eventId}
+                   }
+        response = _request_data(request)
+        response_json = json.loads(response)
+        self._frames = response_json["result"][0]["frames"]
+
+    def _generateFrameBytes(self):
+        if len(self._frames) > 0:
+            frame = self._frames.pop(0)
+            request = {"eventId": frame["eventId"],
+                       "cameraId" : str(frame["cameraId"]),
+                       "timestamp": frame["timestamp"],
+                       "frame": str(frame["frame"])}
+            return MotionFrameHandler(request)._generateBytes()
+        else:
+            return None
+
     
 class TimelapseVideoHandler(AbstractVideoHandler):
-    # The possible units expressed as {unit: (time interval, max history)}
-    __UNITS = {"minute": (datetime.timedelta(seconds=2), datetime.timedelta(days=-7)),
-               "hour": (datetime.timedelta(minute=1), datetime.timedelta(days=-7)),
-               "day": (datetime.timedelta(hours=1), datetime.timedelta(weeks=-4)),
-               "week": (datetime.timedelta(hours=6), datetime.timedelta(months=-3)),
-               "month": (datetime.timedelta(hours=24), datetime.timedelta(years=-100)),}
     
     def __init__(self, request):
         self.__logger = logging.getLogger("%s.TimelapseVideoHandler" % __name__)
@@ -238,19 +267,32 @@ class TimelapseVideoHandler(AbstractVideoHandler):
         
         try:
             self._cameraId = self._request["cameraId"]
-            timeInterval, maxHistory = self.__UNITS[self._request["unit"]]
-            fromTimestamp = datetime.datetime.strptime(self._request["fromTimestamp"], '%Y%m%d%H%M%S')
+            fromTimestamp = self._request["fromTimestamp"]
+            units = self._request["units"]
             count = int(self._request["count"])
         except Exception, e:    
             # One of the above required values are not provided in the request
             raise e
 
-        self._timestamps = []
-        for i in range(count):
-            self._timestamps.append(fromTimestamp + i * timeInterval)
+        self._frames = []
+        
+        # Get the timelapse snapshots
+        request = {"method": "snapshot.get",
+                   "params": {"cameraId": self._cameraId,
+                              "startTime": fromTimestamp, 
+                              "units": units, 
+                              "count": count}
+                   }
+        response = _request_data(request)
+        response_json = json.loads(response)
+        self._frames = response_json["result"]
 
     def _generateFrameBytes(self):
-        request = {"cameraId" : self._cameraId,
-                   "timestamp": self._timestamps.pop(0).strftime('%Y%m%d%H%M%S'),
-                   "frame": "00"}
-        return SnapshotFrameHandler(request)._generateBytes()
+        if len(self._frames) > 0:
+            frame = self._frames.pop(0)
+            request = {"cameraId" : str(frame["cameraId"]),
+                       "timestamp": frame["timestamp"],
+                       "frame": str(frame["frame"])}
+            return SnapshotFrameHandler(request)._generateBytes()
+        else:
+            return None

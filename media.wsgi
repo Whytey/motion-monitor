@@ -6,7 +6,7 @@ import json
 import re
 import socket
 import sys
-from monitor.stream.handlers import SnapshotFrameHandler, MotionFrameHandler, TimelapseVideoHandler, LiveFrameHandler, LiveVideoHandler
+from monitor.stream.handlers import SnapshotFrameHandler, MotionFrameHandler, MotionVideoHandler, TimelapseVideoHandler, LiveFrameHandler, LiveVideoHandler
 
 
 JSON_TYPE = "JSON"
@@ -104,6 +104,8 @@ def application(environ, start_response):
             handler = SnapshotFrameHandler(data)
         elif request_type.lower() == "motionframe":
             handler = MotionFrameHandler(data)
+        elif request_type.lower() == "motionvideo":
+            handler = MotionVideoHandler(data)
         elif request_type.lower() == "timelapsevideo":
             handler = TimelapseVideoHandler(data)
         elif request_type.lower() == "liveframe":
