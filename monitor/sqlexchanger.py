@@ -313,7 +313,7 @@ class SQLWriter():
         query = """SELECT event_id,
                           camera_id,
                           start_time
-                   FROM motion_frames
+                   FROM motion_frame
                    WHERE event_id = %s""" % eventId
         return self.__run_query(query)
         

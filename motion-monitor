@@ -64,7 +64,7 @@ class MainApp():
         log_filename = 'motion-monitor.log'
         
         logger = logging.getLogger('monitor')
-        logger.setLevel(logging.INFO)
+        logger.setLevel(logging.DEBUG)
 
         # Determine the path to the log file.
         log_path = os.path.join(os.sep, 'var', 'log', 'motion-monitor')

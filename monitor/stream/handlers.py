@@ -241,7 +241,7 @@ class TimelapseVideoHandler(AbstractVideoHandler):
             timeInterval, maxHistory = self.__UNITS[self._request["unit"]]
             fromTimestamp = datetime.datetime.strptime(self._request["fromTimestamp"], '%Y%m%d%H%M%S')
             count = int(self._request["count"])
-        except Exception, e:
+        except Exception, e:    
             # One of the above required values are not provided in the request
             raise e
 
