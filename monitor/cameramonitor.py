@@ -155,11 +155,21 @@ class Event():
         
         eventId = params["eventId"]        
         
-        dbEvents = sqlwriter.get_motion_event_frames(eventId)
+        dbFrames = sqlwriter.get_motion_event_frames(eventId)
+        
         events = []
+        
+        if len(dbFrames) > 0:
+            eventId = dbFrames[0][0]
+            cameraId = dbFrames[0][1]
+            startTime = dbFrames[0][2]
+            event = Event(eventId, cameraId, startTime)
 
-        for (event_id, camera_id, start_time) in dbEvents:
-            events.append(Event(event_id, camera_id, start_time))
+            for (eventId, cameraId, timestamp, frameNum, score, filename) in dbFrames:
+                eventFrame = EventFrame(cameraId, eventId, timestamp, frameNum, filename, score)
+                event._include_frame(eventFrame)
+                
+            events.append(event)
         
         # Return the events as a list
         return events

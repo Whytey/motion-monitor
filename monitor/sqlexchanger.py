@@ -312,9 +312,13 @@ class SQLWriter():
         # Select just the events within the range of provided parameters
         query = """SELECT event_id,
                           camera_id,
-                          start_time
+                          timestamp,
+                          frame,
+                          score,
+                          filename
                    FROM motion_frame
-                   WHERE event_id = %s""" % eventId
+                   WHERE event_id = %s
+                   ORDER BY timestamp""" % eventId
         return self.__run_query(query)
         
     def get_timelapse(self, fromTimestamp, toTimestamp, interval):
