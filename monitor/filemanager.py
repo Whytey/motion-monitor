@@ -98,21 +98,24 @@ class AuditorThread(threading.Thread):
                 
                 delete_dir_if_empty(root, True)
                 
-                for filename in files:
-                    filepath = os.path.join(root, filename)
+                try:
+                    for filename in files:
+                        filepath = os.path.join(root, filename)
                     
-                    row = (self.__get_camera_from_filepath(filepath),
-                           self.__get_timestamp_from_snapshot_filepath(filepath),
-                           0,
-                           filepath)
+                        row = (self.__get_camera_from_filepath(filepath),
+                               self.__get_timestamp_from_snapshot_filepath(filepath),
+                               0,
+                               filepath)
                     
-                    self.__logger.debug("Inserting the following snapshot file: %s" % str(row))
-                    insertedFiles.append(row)
+                        self.__logger.debug("Inserting the following snapshot file: %s" % str(row))
+                        insertedFiles.append(row)
                     
-                    if len(insertedFiles) > 50:
-                        self.__logger.debug("Inserting DB entries: %s" % insertedFiles)
-                        self.__sqlwriter.insert_snapshot_frames(insertedFiles)
-                        insertedFiles = []
+                        if len(insertedFiles) > 50:
+                            self.__logger.debug("Inserting DB entries: %s" % insertedFiles)
+                            self.__sqlwriter.insert_snapshot_frames(insertedFiles)
+                            insertedFiles = []
+                except Exception as e:
+                    self.__logger.exception(e)
                     
             # Insert the file into the DB
             self.__logger.debug("Inserting remaining DB entries: %s" % insertedFiles)
@@ -131,23 +134,26 @@ class AuditorThread(threading.Thread):
                 
                 delete_dir_if_empty(root, True)
                 
-                for filename in files:
-                    filepath = os.path.join(root, filename)
+                try:
+                    for filename in files:
+                        filepath = os.path.join(root, filename)
+                        
+                        row = (self.__get_event_from_motion_filepath(filepath),
+                               self.__get_camera_from_filepath(filepath),
+                               self.__get_timestamp_from_motion_filepath(filepath),
+                               self.__get_frame_from_motion_filepath(filepath),
+                               0,
+                               filepath)
                     
-                    row = (self.__get_event_from_motion_filepath(filepath),
-                           self.__get_camera_from_filepath(filepath),
-                           self.__get_timestamp_from_motion_filepath(filepath),
-                           self.__get_frame_from_motion_filepath(filepath),
-                           0,
-                           filepath)
+                        self.__logger.debug("Inserting the following motion file: %s" % str(row))
+                        insertedFiles.append(row)
                     
-                    self.__logger.debug("Inserting the following motion file: %s" % str(row))
-                    insertedFiles.append(row)
-                    
-                    if len(insertedFiles) > 50:
-                        self.__logger.debug("Inserting DB entries: %s" % insertedFiles)
-                        self.__sqlwriter.insert_motion_frames(insertedFiles)
-                        insertedFiles = []
+                        if len(insertedFiles) > 50:
+                            self.__logger.debug("Inserting DB entries: %s" % insertedFiles)
+                            self.__sqlwriter.insert_motion_frames(insertedFiles)
+                            insertedFiles = []
+                except Exception as e:
+                    self.__logger.exception(e)
                     
             # Insert the file into the DB
             self.__logger.debug("Inserting remaining DB entries: %s" % insertedFiles)
@@ -202,7 +208,7 @@ class SweeperThread(threading.Thread):
             stale_files = []
             stale_files.extend(self.__sqlwriter.get_stale_snapshot_frames())
             
-            self.__logger.info("Have %s files to delete" % len(stale_files))
+            self.__logger.info("Have %s snapshot files to delete" % len(stale_files))
 
             # Get the filepath from the returned rowset tuple
             deletedFiles = []
@@ -236,7 +242,7 @@ class SweeperThread(threading.Thread):
             stale_files = []
             stale_files.extend(self.__sqlwriter.get_stale_motion_frames())
             
-            self.__logger.info("Have %s files to delete" % len(stale_files))
+            self.__logger.info("Have %s motion files to delete" % len(stale_files))
 
             # Get the filepath from the returned rowset tuple
             deletedFiles = []
@@ -268,7 +274,7 @@ class SweeperThread(threading.Thread):
     def run(self):
         self.__logger.info("Sweeping the snapshot frames")
         self.__sweep_snapshot_frames()
-        self.__logger.info("Sweeping the snapshot frames")
+        self.__logger.info("Sweeping the motion frames")
         self.__sweep_motion_frames()    
     
 class Sweeper():

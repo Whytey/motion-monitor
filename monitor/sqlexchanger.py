@@ -9,7 +9,7 @@ import MySQLdb
 
 class DB():
     __DB_NAME = "motion"
-    __DB_HOST = "192.168.0.100"
+    __DB_HOST = "localhost"
     __DB_USER = "motion"
     __DB_PASSWORD = "motion"
 
