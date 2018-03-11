@@ -165,8 +165,10 @@ class AuditorThread(threading.Thread):
     def run(self):
         self.__logger.info("Auditing the snapshot frames")
         self.__audit_snapshot_frames()
+        self.__logger.info("Snapshot auditing finished")
         self.__logger.info("Auditing the motion frames")
-        self.__audit_motion_frames()   
+        self.__audit_motion_frames()
+        self.__logger.info("Motion auditing finished")
 
 
 class Auditor():
@@ -274,8 +276,10 @@ class SweeperThread(threading.Thread):
     def run(self):
         self.__logger.info("Sweeping the snapshot frames")
         self.__sweep_snapshot_frames()
+        self.__logger.info("Snapshot sweeping finished")
         self.__logger.info("Sweeping the motion frames")
-        self.__sweep_motion_frames()    
+        self.__sweep_motion_frames()
+        self.__logger.info("Motion sweeping finished")
     
 class Sweeper():
     
