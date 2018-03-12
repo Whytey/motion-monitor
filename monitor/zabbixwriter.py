@@ -16,7 +16,7 @@ class ZabbixWriter():
         
         self.__logger = logging.getLogger(__name__)
         
-        self.__zabbix_server = "192.168.0.100"
+        self.__zabbix_server = "192.168.0.99"
         self.__logger.info("Initialised")
 
         
