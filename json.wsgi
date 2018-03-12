@@ -7,6 +7,7 @@ import json
 import re
 import socket
 import sys
+import monitor.config
 
 
 JSON_TYPE = "JSON"
@@ -74,7 +75,7 @@ def __request_data(data):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-    sock.connect(('192.168.0.98', 8889))
+    sock.connect((monitor.config.JSON_SOCKET_ADDR, monitor.config.JSON_SOCKET_PORT))
     sock.send(json.dumps(data))
     rxd_data = []
     while True:

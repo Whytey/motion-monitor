@@ -13,6 +13,7 @@ import monitor.jsoninterface
 import monitor.socketlistener
 import monitor.sqlexchanger
 import monitor.zabbixwriter
+import monitor.config
 import os
 
 class MainApp():
@@ -22,14 +23,16 @@ class MainApp():
         # We are in development if the setup.py script is in the same directory 
         # we are running from.
         self.__in_development = os.path.exists(os.path.join(os.getcwd(), 'setup.py'))
+
+        self.__config = monitor.config
         
         self.__logger = self.__setup_logger()
         self.__logger.debug("Logger configured")
         
-        self.__socket_listener = monitor.socketlistener.SocketListener()
-        self.__camera_monitor = monitor.cameramonitor.CameraMonitor()
-        self.__zabbixwriter = monitor.zabbixwriter.ZabbixWriter()
-        self.__live_sqlwriter = monitor.sqlexchanger.SQLWriter(monitor.sqlexchanger.DB().getConnection())
+        self.__socket_listener = monitor.socketlistener.SocketListener(self.__config)
+        self.__camera_monitor = monitor.cameramonitor.CameraMonitor(self.__config)
+        self.__zabbixwriter = monitor.zabbixwriter.ZabbixWriter(self.__config)
+        self.__live_sqlwriter = monitor.sqlexchanger.SQLWriter(monitor.sqlexchanger.DB().getConnection(self.__config))
         
         # SocketListener MOTION_EVENTs should be handled by the CameraMonitor.
         self.__socket_listener.connect(self.__socket_listener.MOTION_EVENT, 
@@ -45,8 +48,8 @@ class MainApp():
         
         
         # This is the sweeper and auditor.
-        self.__sweeper = monitor.filemanager.Sweeper()
-        self.__auditor = monitor.filemanager.Auditor()
+        self.__sweeper = monitor.filemanager.Sweeper(self.__config)
+        self.__auditor = monitor.filemanager.Auditor(self.__config)
         # SocketListener MANAGEMENT_EVENTs should be handled by the Sweeper.
         self.__socket_listener.connect(self.__socket_listener.MANAGEMENT_EVENT, 
                                        self.__sweeper.sweep)
@@ -55,16 +58,16 @@ class MainApp():
         self.__socket_listener.connect(self.__socket_listener.MANAGEMENT_EVENT, 
                                        self.__auditor.insert_orphaned_snapshots)
         
-        self.__json_interface = monitor.jsoninterface.JSONInterface(self.__camera_monitor)
+        self.__json_interface = monitor.jsoninterface.JSONInterface(self.__, self.__camera_monitor)
         
         self.__logger.info("Initialised...")
 
         
     def __setup_logger(self):
-        log_filename = 'motion-monitor.log'
+        log_filename = self.__config.LOGGING_FILENAME
         
         logger = logging.getLogger('monitor')
-        logger.setLevel(logging.DEBUG)
+        logger.setLevel(logging.getLevelName(self.__config.LOGGING_LEVEL))
 
         # Determine the path to the log file.
         log_path = os.path.join(os.sep, 'var', 'log', 'motion-monitor')
@@ -80,10 +83,8 @@ class MainApp():
         # Add the log message handler to the logger (10MBs in size).
         file_handler = logging.handlers.RotatingFileHandler(
                        logger_path, maxBytes=10485760, backupCount=7)
-        file_handler.setLevel(logging.INFO)
         
         console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.INFO)
         
         formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         file_handler.setFormatter(formatter)

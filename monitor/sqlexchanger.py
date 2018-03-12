@@ -8,18 +8,14 @@ import datetime
 import MySQLdb
 
 class DB():
-    __DB_NAME = "motion"
-    __DB_HOST = "localhost"
-    __DB_USER = "motion"
-    __DB_PASSWORD = "motion"
 
     def __init__(self):
         
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
         self.__logger.info("Initialised")
         
-    def getConnection(self):
-        return MySQLdb.connect(host=self.__DB_HOST, db=self.__DB_NAME, user=self.__DB_USER, passwd=self.__DB_PASSWORD)
+    def getConnection(self, config):
+        return MySQLdb.connect(host=config.DB_SERVER_ADDR, db=config.DB_NAME, user=config.DB_USER, passwd=config.DB_PASSWORD)
 
 
 class SQLWriter():

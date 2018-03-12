@@ -18,11 +18,9 @@ class SocketListener(GObject.GObject):
         MOTION_EVENT: (GObject.SIGNAL_RUN_LAST, None, (GObject.TYPE_PYOBJECT,)),
         MANAGEMENT_EVENT: (GObject.SIGNAL_RUN_LAST, None, (GObject.TYPE_PYOBJECT,))
     }
-    
-    __SERVER_ADDR = '127.0.0.1'
-    __SERVER_PORT = 8888
+
         
-    def __init__(self):
+    def __init__(self, config):
         GObject.GObject.__init__(self)
         
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
@@ -30,8 +28,8 @@ class SocketListener(GObject.GObject):
         # Initialise server and start listening.
         self.__socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.__socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.__logger.debug("binding to %s:%d" % (self.__SERVER_ADDR, self.__SERVER_PORT))
-        self.__socket.bind((self.__SERVER_ADDR, self.__SERVER_PORT))
+        self.__logger.debug("binding to %s:%d" % (config.MOTION_SOCKET_ADDR, config.MOTION_SOCKET_PORT))
+        self.__socket.bind((config.MOTION_SOCKET_ADDR, config.MOTION_SOCKET_PORT))
         self.__logger.info("Listening...")
         
         # When there is data available, call the callback.

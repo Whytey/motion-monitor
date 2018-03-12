@@ -137,15 +137,11 @@ class SnapshotImage(Image):
 
 
 class JSONInterface():
-    
-    __SERVER_ADDR = '127.0.0.1'
-    __SERVER_ADDR = '192.168.0.98'
-    __SERVER_PORT = 8889
-    
+
     _CONFIG_target_dir = '/data/motion/'
     _CONFIG_snapshot_filename = 'snapshots/camera%t/%Y/%m/%d/%H/%M/%S-snapshot.jpg'
 
-    def __init__(self, camera_monitor):
+    def __init__(self, config, camera_monitor):
         self.__logger = logging.getLogger(__name__)
         
         self.__camera_monitor = camera_monitor
@@ -153,8 +149,8 @@ class JSONInterface():
         # Initialise server and start listening.
         self.__socket = socket.socket()
         self.__socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.__logger.debug("binding to %s:%d" % (self.__SERVER_ADDR, self.__SERVER_PORT))
-        self.__socket.bind((self.__SERVER_ADDR, self.__SERVER_PORT))
+        self.__logger.debug("binding to %s:%d" % (config.JSON_SERVER_ADDR, config.JSON_SERVER_PORT))
+        self.__socket.bind((config.JSON_SERVER_ADDR, config.JSON_SERVER_PORT))
         self.__socket.listen(5)
         self.__logger.info("Listening...")
         
