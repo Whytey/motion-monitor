@@ -120,6 +120,9 @@ class Event():
         self._startTime = startTime
         self._topScoreFrame = None
         self._frames = []
+
+    def __str__(self):
+        return "%s for camera %s" % (self._eventId, self._cameraId)
         
     def _include_frame(self, eventFrame):
         # See if this is the highest scoring frame
@@ -260,7 +263,14 @@ class Camera():
             if filetype == self.FTYPE_IMAGE:
                 self.__logger.debug("Handling motion image")
                 eventFrame = EventFrame.fromSocketMsg(msg)
-                self.__recent_motion[0]._include_frame(eventFrame)
+                try:
+                    self.__recent_motion[0]._include_frame(eventFrame)
+                except IndexError as e:
+                    self.__logger.warning("Must have missed the start of an event, forcing creation")
+                    newEvent = Event(eventFrame._eventId, eventFrame._cameraId, eventFrame._timestamp)
+                    self.__logger.info("Created new event: %s" % newEvent)
+                    self.__recent_motion.appendleft(newEvent)
+                    self.__recent_motion[0]._include_frame(eventFrame)
         except ValueError:
             self.__logger.warning("Received an unexpected filetype: %s" % msg["filetype"])
             

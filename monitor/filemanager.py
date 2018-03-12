@@ -222,7 +222,7 @@ class SweeperThread(threading.Thread):
                     deletedFiles.append((cameraId, timestamp, frame))
                     deletedPaths.add(os.path.dirname(filename))
                     
-                if len(deletedFiles) > 100:
+                if len(deletedFiles) > 50:
                     self.__logger.debug("Deleting stale DB entries: %s" % deletedFiles)
                     self.__sqlwriter.delete_snapshot_frame(deletedFiles)
                     deletedFiles = []
@@ -256,7 +256,7 @@ class SweeperThread(threading.Thread):
                     deletedFiles.append((eventId, cameraId, timestamp, frame))
                     deletedPaths.add(os.path.dirname(filename))
                     
-                if len(deletedFiles) > 200:
+                if len(deletedFiles) > 50:
                     self.__logger.debug("Deleting stale DB entries: %s" % deletedFiles)
                     self.__sqlwriter.delete_motion_frame(deletedFiles)
                     deletedFiles = []
