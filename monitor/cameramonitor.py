@@ -302,7 +302,7 @@ class CameraMonitor(GObject.GObject):
                                 (GObject.TYPE_PYOBJECT,))
     }
 
-    def __init__(self):
+    def __init__(self, config):
         GObject.GObject.__init__(self)
         
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))

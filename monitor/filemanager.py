@@ -173,7 +173,7 @@ class AuditorThread(threading.Thread):
 
 class Auditor():
     
-    def __init__(self):
+    def __init__(self, config):
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
         self.__logger.info("Initialised")
         self.__thread = None
@@ -283,7 +283,7 @@ class SweeperThread(threading.Thread):
     
 class Sweeper():
     
-    def __init__(self):
+    def __init__(self, config):
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
         self.__logger.info("Initialised")
         self.__thread = None

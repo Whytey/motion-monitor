@@ -149,8 +149,8 @@ class JSONInterface():
         # Initialise server and start listening.
         self.__socket = socket.socket()
         self.__socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.__logger.debug("binding to %s:%d" % (config.JSON_SERVER_ADDR, config.JSON_SERVER_PORT))
-        self.__socket.bind((config.JSON_SERVER_ADDR, config.JSON_SERVER_PORT))
+        self.__logger.debug("binding to %s:%d" % (config.JSON_SOCKET_ADDR, config.JSON_SOCKET_PORT))
+        self.__socket.bind((config.JSON_SOCKET_ADDR, config.JSON_SOCKET_PORT))
         self.__socket.listen(5)
         self.__logger.info("Listening...")
         

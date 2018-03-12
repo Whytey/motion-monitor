@@ -58,7 +58,7 @@ class MainApp():
         self.__socket_listener.connect(self.__socket_listener.MANAGEMENT_EVENT, 
                                        self.__auditor.insert_orphaned_snapshots)
         
-        self.__json_interface = monitor.jsoninterface.JSONInterface(self.__, self.__camera_monitor)
+        self.__json_interface = monitor.jsoninterface.JSONInterface(self.__config, self.__camera_monitor)
         
         self.__logger.info("Initialised...")
 
