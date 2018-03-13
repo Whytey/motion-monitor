@@ -186,7 +186,7 @@ class Auditor():
         if not self.__thread or not self.__thread.isAlive():
             # Create a thread and start it
             self.__logger.info("Creating a new AuditorThread and starting it")
-            sqlwriter = monitor.sqlexchanger.SQLWriter(monitor.sqlexchanger.DB().getConnection())
+            sqlwriter = monitor.sqlexchanger.SQLWriter(monitor.sqlexchanger.DB.get_connection())
             self.__thread = AuditorThread(sqlwriter)
             self.__thread.start()
         else:
@@ -295,7 +295,7 @@ class Sweeper():
         if not self.__thread or not self.__thread.isAlive():
             # Create a thread and start it
             self.__logger.info("Creating a new SweeperThread and starting it")
-            sqlwriter = monitor.sqlexchanger.SQLWriter(monitor.sqlexchanger.DB().getConnection())
+            sqlwriter = monitor.sqlexchanger.SQLWriter(monitor.sqlexchanger.DB.get_connection())
             self.__thread = SweeperThread(sqlwriter)
             self.__thread.start()
         else:

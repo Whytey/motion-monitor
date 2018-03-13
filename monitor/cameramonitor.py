@@ -36,7 +36,7 @@ class Frame():
     
     @staticmethod        
     def get(params):
-        sqlwriter = monitor.sqlexchanger.SQLWriter(monitor.sqlexchanger.DB().getConnection())
+        sqlwriter = monitor.sqlexchanger.SQLWriter(monitor.sqlexchanger.DB.get_connection())
 
         assert "cameraId" in params, "No cameraId is specified: %s" % params
         assert "startTime" in params, "No startTime is specified: %s" % params
@@ -162,7 +162,7 @@ class Event():
     
     @staticmethod        
     def get(params):
-        sqlwriter = monitor.sqlexchanger.SQLWriter(monitor.sqlexchanger.DB().getConnection())
+        sqlwriter = monitor.sqlexchanger.SQLWriter(monitor.sqlexchanger.DB.get_connection())
 
         assert "eventId" in params, "No eventId is specified: %s" % params
         assert "cameraId" in params, "No cameraId is specified: %s" % params
@@ -192,7 +192,7 @@ class Event():
     @staticmethod        
     def list(params):
         # Returns the list of motion events from the DB only.
-        sqlwriter = monitor.sqlexchanger.SQLWriter(monitor.sqlexchanger.DB().getConnection())
+        sqlwriter = monitor.sqlexchanger.SQLWriter(monitor.sqlexchanger.DB().get_connection())
         
         fromTimestamp = None
         if "fromTimestamp" in params:

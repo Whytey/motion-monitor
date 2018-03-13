@@ -7,35 +7,49 @@ import logging
 import datetime
 import MySQLdb
 
-class DB():
 
-    def __init__(self):
-        
+class DB():
+    _connection = None
+    __DB_SERVER_ADDR = None
+    __DB_NAME = None
+    __DB_USER = None
+    __DB_PASSWORD = None
+
+    def __init__(self, config):
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
         self.__logger.info("Initialised")
-        
-    def getConnection(self, config):
-        return MySQLdb.connect(host=config.DB_SERVER_ADDR, db=config.DB_NAME, user=config.DB_USER, passwd=config.DB_PASSWORD)
+        __DB_SERVER_ADDR = config.DB_SERVER_ADDR
+        __DB_NAME = config.DB_NAME
+        __DB_USER = config.DB_USER
+        __DB_PASSWORD = config.DB_PASSWORD
+
+    @staticmethod
+    def get_connection():
+        if DB._connection is None:
+            DB._connection = MySQLdb.connect(host=DB.__DB_SERVER_ADDR, db=DB.__DB_NAME, user=DB.__DB_USER,
+                                             passwd=DB.__DB_PASSWORD)
+        return DB._connection
+
 
 
 class SQLWriter():
-    
+
     def __init__(self, connection):
-        
+
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
         self.__logger.info("Initialised")
         self.__connection = connection
-        
+
     def __run_query(self, query, params=None):
         try:
             cursor = self.__connection.cursor()
         except MySQLdb.OperationalError as e:
             self.__logger.exception("Lost connection to the DB, reconnecting", e)
-            self.__connection = DB().getConnection()
+            self.__connection = DB.get_connection()
             cursor = self.__connection.cursor()
-        
+
         self.__logger.debug("About to run query: %s" % query)
-            
+
         try:
             if params:
                 cursor.executemany(query, params)
@@ -57,9 +71,9 @@ class SQLWriter():
                            %s,
                            %s,
                            %s)"""
-                           
+
         self.__run_query(query, frames)
-        
+
     def insert_motion_frames(self, frames):
         self.__logger.debug("Inserting motion frame to the DB: %s" % frames)
         # Insert the data to the DB.  Ignore any duplicates (as determined by the filename)
@@ -82,7 +96,7 @@ class SQLWriter():
                            %s,
                            %s)"""
         self.__run_query(query, events)
-        
+
     def delete_snapshot_frame(self, frames):
         self.__logger.debug("Deleting snapshot frames from the DB: %s" % frames)
         # If the list contains frames, remove them from the DB
@@ -93,7 +107,7 @@ class SQLWriter():
                        AND timestamp = %s
                        AND frame = %s"""
         self.__run_query(query, frames)
-        
+
     def delete_motion_frame(self, frames):
         self.__logger.debug("Deleting motion frames from the DB: %s" % frames)
         # If the list contains frames, remove them from the DB
@@ -106,7 +120,8 @@ class SQLWriter():
                        AND frame = %s"""
         self.__run_query(query, frames)
 
-    def get_timelapse_snapshot_frames(self, cameraId, startTime, minuteCount=0, hourCount=0, dayCount=0, weekCount=0, monthCount=0):
+    def get_timelapse_snapshot_frames(self, cameraId, startTime, minuteCount=0, hourCount=0, dayCount=0, weekCount=0,
+                                      monthCount=0):
         self.__logger.debug("Listing snapshots in the DB for timelapse")
         # Select just the snapshot filenames that are stale
         query = """SELECT camera_id,
@@ -169,18 +184,18 @@ class SQLWriter():
                         AND timestamp < adddate({startTime}, INTERVAL {monthCount} MONTH)
                         AND hour(timestamp) = 12
                       GROUP BY date(timestamp),
-                               hour(timestamp))""".format(cameraId=cameraId, 
-                                                          startTime=startTime, 
-                                                          minuteCount=minuteCount, 
-                                                          hourCount=hourCount, 
-                                                          dayCount=dayCount, 
-                                                          weekCount=weekCount, 
+                               hour(timestamp))""".format(cameraId=cameraId,
+                                                          startTime=startTime,
+                                                          minuteCount=minuteCount,
+                                                          hourCount=hourCount,
+                                                          dayCount=dayCount,
+                                                          weekCount=weekCount,
                                                           monthCount=monthCount)
         return self.__run_query(query)
 
     def get_stale_snapshot_frames(self):
         timeNow = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-        
+
         # First create the temporary table
         query = """CREATE
                    TEMPORARY TABLE IF NOT EXISTS retain_frames (INDEX idx_time_camera (timestamp, camera_id))AS
@@ -236,11 +251,11 @@ class SQLWriter():
                             GROUP BY camera_id,
                                      date(timestamp),
                                      hour(timestamp),
-                                     minute(timestamp))) e""" % (timeNow, 
-                                                                 timeNow, 
-                                                                 timeNow, 
-                                                                 timeNow, 
-                                                                 timeNow, 
+                                     minute(timestamp))) e""" % (timeNow,
+                                                                 timeNow,
+                                                                 timeNow,
+                                                                 timeNow,
+                                                                 timeNow,
                                                                  timeNow)
         self.__run_query(query)
 
@@ -262,7 +277,6 @@ class SQLWriter():
                           AND a.frame = b.frame)""" % timeNow
         return self.__run_query(query)
 
-        
     def get_stale_motion_frames(self):
         self.__logger.debug("Listing stale motion files in the DB")
         # First, delete the events that are stale
@@ -297,12 +311,12 @@ class SQLWriter():
             wheres.append("start_time < %s" % toTimestamp)
         if cameraIds:
             wheres.append("camera_id IN (%s)" % ','.join(cameraIds))
-            
+
         if len(wheres) > 0:
             query = query + "\nWHERE " + "\nAND ".join(wheres)
 
         return self.__run_query(query)
-        
+
     def get_motion_event_frames(self, eventId, cameraId):
         self.__logger.debug("Listing motion event frames in the DB")
         # Select just the events within the range of provided parameters
@@ -317,28 +331,28 @@ class SQLWriter():
                      AND camera_id = %s
                    ORDER BY timestamp""" % (eventId, cameraId)
         return self.__run_query(query)
-        
+
     def get_timelapse(self, fromTimestamp, toTimestamp, interval):
         pass
-                
+
     def handle_motion_event(self, object, msg):
         try:
             self.__logger.debug("Handling a message: %s" % msg)
             if msg["type"] not in ["picture_save", "event_start", "event_end"]:
                 # Not a message we log to the DB
                 return True
-            
+
             if msg["type"] == "picture_save":
-                if msg['filetype'] == "1": # MotionFrame
+                if msg['filetype'] == "1":  # MotionFrame
                     files = [(msg['event'],
                               msg['camera'],
                               msg['timestamp'],
                               msg['frame'],
                               msg['score'],
-                              msg['file'])] 
+                              msg['file'])]
                     self.insert_motion_frames(files)
-                
-                if msg['filetype'] == "2": # SnapshotFrame
+
+                if msg['filetype'] == "2":  # SnapshotFrame
                     files = [(msg['camera'],
                               msg['timestamp'],
                               msg['frame'],
@@ -347,8 +361,8 @@ class SQLWriter():
 
             if msg["type"] == "event_start":
                 events = [(msg['event'],
-                          msg['camera'],
-                          msg['timestamp'])]
+                           msg['camera'],
+                           msg['timestamp'])]
                 self.insert_motion_events(events)
 
         except Exception as e:
