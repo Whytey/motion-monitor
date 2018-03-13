@@ -18,10 +18,10 @@ class DB():
     def __init__(self, config):
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
         self.__logger.info("Initialised")
-        __DB_SERVER_ADDR = config.DB_SERVER_ADDR
-        __DB_NAME = config.DB_NAME
-        __DB_USER = config.DB_USER
-        __DB_PASSWORD = config.DB_PASSWORD
+        DB.__DB_SERVER_ADDR = config.DB_SERVER_ADDR
+        DB.__DB_NAME = config.DB_NAME
+        DB.__DB_USER = config.DB_USER
+        DB.__DB_PASSWORD = config.DB_PASSWORD
 
     @staticmethod
     def get_connection():

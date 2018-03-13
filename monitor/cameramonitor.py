@@ -192,7 +192,7 @@ class Event():
     @staticmethod        
     def list(params):
         # Returns the list of motion events from the DB only.
-        sqlwriter = monitor.sqlexchanger.SQLWriter(monitor.sqlexchanger.DB().get_connection())
+        sqlwriter = monitor.sqlexchanger.SQLWriter(monitor.sqlexchanger.DB.get_connection())
         
         fromTimestamp = None
         if "fromTimestamp" in params:
