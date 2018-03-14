@@ -25,10 +25,9 @@ class DB():
 
     @staticmethod
     def get_connection():
-        if DB._connection is None:
-            DB._connection = MySQLdb.connect(host=DB.__DB_SERVER_ADDR, db=DB.__DB_NAME, user=DB.__DB_USER,
+        connection = MySQLdb.connect(host=DB.__DB_SERVER_ADDR, db=DB.__DB_NAME, user=DB.__DB_USER,
                                              passwd=DB.__DB_PASSWORD)
-        return DB._connection
+        return connection
 
 
 
@@ -38,25 +37,37 @@ class SQLWriter():
 
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
         self.__logger.info("Initialised")
-        self.__connection = connection
+        self.__connection = None
+
+    def __open(self):
+        try:
+            cnx = DB.get_connection()
+            self.__connection = cnx
+            return cnx.cursor()
+        except MySQLdb.Error as e:
+            self.__logger.exception("Error opening connection:", e)
+
+    def __close(self):
+        self.__connection.close()
 
     def __run_query(self, query, params=None):
-        try:
-            cursor = self.__connection.cursor()
-        except MySQLdb.OperationalError as e:
-            self.__logger.exception("Lost connection to the DB, reconnecting", e)
-            self.__connection = DB.get_connection()
-            cursor = self.__connection.cursor()
 
-        self.__logger.debug("About to run query: %s" % query)
+        cur = self.__open()
+
 
         try:
+            self.__logger.debug("About to run query: %s" % query)
             if params:
-                cursor.executemany(query, params)
+                cur.executemany(query, params)
             else:
-                cursor.execute(query)
+                cur.execute(query)
             self.__connection.commit()
-            return cursor.fetchall()
+
+            results = cur.fetchall()
+
+            self.__close()
+
+            return results
         except Exception as e:
             self.__logger.exception(e)
             self.__connection.rollback()
