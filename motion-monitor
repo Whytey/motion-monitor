@@ -33,7 +33,7 @@ class MainApp():
         self.__camera_monitor = monitor.cameramonitor.CameraMonitor(self.__config)
         self.__zabbixwriter = monitor.zabbixwriter.ZabbixWriter(self.__config)
         db = monitor.sqlexchanger.DB(self.__config)
-        self.__live_sqlwriter = monitor.sqlexchanger.SQLWriter(monitor.sqlexchanger.DB.get_connection())
+        self.__live_sqlwriter = monitor.sqlexchanger.SQLWriter()
         
         # SocketListener MOTION_EVENTs should be handled by the CameraMonitor.
         self.__socket_listener.connect(self.__socket_listener.MOTION_EVENT, 

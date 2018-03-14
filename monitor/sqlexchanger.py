@@ -33,7 +33,7 @@ class DB():
 
 class SQLWriter():
 
-    def __init__(self, connection):
+    def __init__(self):
 
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
         self.__logger.info("Initialised")
