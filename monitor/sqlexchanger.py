@@ -9,7 +9,6 @@ import MySQLdb
 
 
 class DB():
-    _connection = None
     __DB_SERVER_ADDR = None
     __DB_NAME = None
     __DB_USER = None

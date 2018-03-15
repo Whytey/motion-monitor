@@ -8,6 +8,7 @@ import logging
 import monitor.sqlexchanger
 import os
 import threading
+import datetime
 
 
 def delete_path(path):
@@ -142,12 +143,25 @@ class AuditorThread(threading.Thread):
                     for filename in files:
                         filepath = os.path.join(root, filename)
 
-                        row = (self.__get_event_from_motion_filepath(filepath),
-                               self.__get_camera_from_filepath(filepath),
-                               self.__get_timestamp_from_motion_filepath(filepath),
-                               self.__get_frame_from_motion_filepath(filepath),
-                               0,
-                               filepath)
+                        eventId = self.__get_event_from_motion_filepath(filepath),
+                        cameraId = self.__get_camera_from_filepath(filepath),
+                        timestamp = self.__get_timestamp_from_motion_filepath(filepath),
+                        frame = self.__get_frame_from_motion_filepath(filepath)
+
+                        # Some validation
+                        try:
+                            if (self.__split_all(filepath) != 7 or frame < 0
+                                    or datetime.datetime.strptime(timestamp, "%Y%m%d-%H%M%S")):
+                                raise ValueError("Couldn't parse frame")
+                        except ValueError:
+                            self.__logger.warning(
+                                "Invalid frame, deleting it and skipping: eventId={}, frame={}, filepath={}, timestamp={}".format(
+                                    eventId, frame, filepath, timestamp))
+                            delete_path(filename)
+                            delete_dir_if_empty(root, True)
+                            continue
+
+                        row = (eventId, cameraId, timestamp, frame, 0, filepath)
 
                         self.__logger.debug("Inserting the following motion file: %s" % str(row))
                         insertedFiles.append(row)
@@ -159,10 +173,8 @@ class AuditorThread(threading.Thread):
 
                     if not dirs:
                         # This is a lowest branch, we can work out the motion_event entry
-                        eventId = self.__get_event_from_motion_filepath(filepath)
-                        row = (eventId,
-                               self.__get_camera_from_filepath(filepath),
-                               self.__get_starttime_from_motion_event(eventId))
+                        starttime = self.__get_starttime_from_motion_event(eventId)
+                        row = (eventId, cameraId, starttime)
                         self.__sqlwriter.insert_motion_events([row])
                 except Exception as e:
                     self.__logger.exception(e)
@@ -175,12 +187,12 @@ class AuditorThread(threading.Thread):
             raise
 
     def run(self):
-        self.__logger.info("Auditing the snapshot frames")
-        self.__audit_snapshot_frames()
-        self.__logger.info("Snapshot auditing finished")
         self.__logger.info("Auditing the motion frames")
         self.__audit_motion_frames()
         self.__logger.info("Motion auditing finished")
+        self.__logger.info("Auditing the snapshot frames")
+        self.__audit_snapshot_frames()
+        self.__logger.info("Snapshot auditing finished")
 
 
 class Auditor():
