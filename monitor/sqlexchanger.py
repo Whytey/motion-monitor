@@ -211,7 +211,7 @@ class SQLWriter():
 
         # First create the temporary table
         query = """CREATE
-                   TEMPORARY TABLE IF NOT EXISTS retain_frames (INDEX idx_time_camera (timestamp, camera_id))AS
+                   TEMPORARY TABLE IF NOT EXISTS retain_frames AS
                    SELECT camera_id,
                           timestamp,
                           frame,
