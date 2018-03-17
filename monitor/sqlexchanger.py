@@ -49,22 +49,24 @@ class SQLWriter():
     def __close(self):
         self.__connection.close()
 
-    def __run_query(self, query, params=None, close_session=True):
+    def __run_query(self, query, params=None, cursor=None):
 
-        cur = self.__open()
+        cursor_provided = cursor is not None
+        if not cursor_provided:
+            cursor = self.__open()
 
 
         try:
             self.__logger.debug("About to run query: %s" % query)
             if params:
-                cur.executemany(query, params)
+                cursor.executemany(query, params)
             else:
-                cur.execute(query)
+                cursor.execute(query)
             self.__connection.commit()
 
-            results = cur.fetchall()
+            results = cursor.fetchall()
 
-            if close_session:
+            if not cursor_provided:
                 self.__close()
 
             return results
@@ -256,7 +258,8 @@ class SQLWriter():
                                                                  timeNow,
                                                                  timeNow,
                                                                  timeNow)
-        self.__run_query(query, close_session=False)
+        cursor = self.__open()
+        self.__run_query(query, cursor=cursor)
 
         # Select just the snapshot filenames that are stale
         query = """SELECT camera_id,
@@ -274,7 +277,7 @@ class SQLWriter():
                         WHERE a.camera_id = b.camera_id
                           AND a.timestamp = b.timestamp
                           AND a.frame = b.frame)""" % timeNow
-        return self.__run_query(query)
+        return self.__run_query(query, cursor=cursor)
 
     def get_stale_motion_frames(self):
         self.__logger.debug("Listing stale motion files in the DB")
