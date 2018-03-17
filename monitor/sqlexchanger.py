@@ -49,7 +49,7 @@ class SQLWriter():
     def __close(self):
         self.__connection.close()
 
-    def __run_query(self, query, params=None):
+    def __run_query(self, query, params=None, close_session=True):
 
         cur = self.__open()
 
@@ -64,7 +64,8 @@ class SQLWriter():
 
             results = cur.fetchall()
 
-            self.__close()
+            if close_session:
+                self.__close()
 
             return results
         except Exception as e:
@@ -228,11 +229,7 @@ class SQLWriter():
                             FROM snapshot_frame b
                             WHERE timestamp < subdate(%s, INTERVAL 7 DAY)
                               AND timestamp >= subdate(%s, INTERVAL 4 WEEK)
-                              AND minute(timestamp) = 0
-                            GROUP BY camera_id,
-                                     date(timestamp),
-                                     hour(timestamp),
-                                     minute(timestamp))
+                              AND minute(timestamp) = 0)
                          UNION
                            (SELECT camera_id,
                                    timestamp,
@@ -244,11 +241,7 @@ class SQLWriter():
                               AND hour(timestamp) IN (6,
                                                       12,
                                                       18)
-                              AND minute(timestamp) = 0
-                            GROUP BY camera_id,
-                                     date(timestamp),
-                                     hour(timestamp),
-                                     minute(timestamp))
+                              AND minute(timestamp) = 0)
                          UNION
                            (SELECT camera_id,
                                    timestamp,
@@ -257,17 +250,13 @@ class SQLWriter():
                             FROM snapshot_frame d
                             WHERE timestamp < subdate(%s, INTERVAL 3 MONTH)
                               AND hour(timestamp) = 12
-                              AND minute(timestamp) = 0
-                            GROUP BY camera_id,
-                                     date(timestamp),
-                                     hour(timestamp),
-                                     minute(timestamp))) e""" % (timeNow,
+                              AND minute(timestamp) = 0)) e""" % (timeNow,
                                                                  timeNow,
                                                                  timeNow,
                                                                  timeNow,
                                                                  timeNow,
                                                                  timeNow)
-        self.__run_query(query)
+        self.__run_query(query, close_session=False)
 
         # Select just the snapshot filenames that are stale
         query = """SELECT camera_id,
