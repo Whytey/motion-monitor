@@ -8,7 +8,16 @@ timeNow = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
 
 class TestMysql(unittest.TestCase):
 
-    def __getvquick_query(self):
+    def __get_vquick_query(self):
+	return """SELECT count(*) FROM snapshot_frame a
+		WHERE (timestamp < subdate(%s, INTERVAL 7 DAY)
+		     AND minute(timestamp) != 0)
+		OR (timestamp < subdate(%s, INTERVAL 4 WEEK)
+		     AND hour(timestamp) NOT IN (6,12, 18)
+		     AND minute(timestamp) != 0)
+		OR (timestamp < subdate(%s, INTERVAL 3 MONTH)
+		     AND hour(timestamp) != 12
+		     AND minute(timestamp) != 0)""" %(timeNow, timeNow, timeNow)
 
     def __get_non_union_query(self):
         return """CREATE
@@ -124,26 +133,29 @@ class TestMysql(unittest.TestCase):
         return str(toc - tic)
 
 
-    def testSSCursor(self):
+    def testBaseline(self):
 
         cnx = MySQLdb.connect("127.0.0.1", "motion", "motion", "motion")
-        cursor = SSCursor(cnx)
+	cursors = {"SSCursor": SSCursor(cnx), "Normal": cnx.cursor}
         queries = [self.__get_create_query(), self.__get_select_query()]
-        print "SSCursor: " + self.__run_query(cursor, queries)
+	for k, cursor in cursors.iteritems():
+		print "{}: took {} seconds".format(k, self.__run_query(cursor, queries))
 
-    def testNormalCursor(self):
-
-        cnx = MySQLdb.connect("127.0.0.1", "motion", "motion", "motion")
-        cursor = cnx.cursor()
-        queries = [self.__get_create_query(), self.__get_select_query()]
-        print "Normal cursor: " + self.__run_query(cursor, queries)
-
-    def testNormalCursorFastQuery(self):
+    def testNonUnion(self):
 
         cnx = MySQLdb.connect("127.0.0.1", "motion", "motion", "motion")
-        cursor = cnx.cursor()
+	cursors = {"SSCursor": SSCursor(cnx), "Normal": cnx.cursor}
         queries = [self.__get_non_union_query(), self.__get_select_query()]
-        print "Normal cursor, fast query: " + self.__run_query(cursor, queries)
+	for k, cursor in cursors.iteritems():
+		print "{}: took {} seconds".format(k, self.__run_query(cursor, queries))
+		
+    def testSimpleSelect(self):
 
+        cnx = MySQLdb.connect("127.0.0.1", "motion", "motion", "motion")
+	cursors = {"SSCursor": SSCursor(cnx), "Normal": cnx.cursor}
+        queries = [self.__get_vquick_query()]
+	for k, cursor in cursors.iteritems():
+		print "{}: took {} seconds".format(k, self.__run_query(cursor, queries))
+		
 if __name__ == '__main__':
     unittest.main()
