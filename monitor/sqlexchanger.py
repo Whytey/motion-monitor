@@ -209,75 +209,19 @@ class SQLWriter():
     def get_stale_snapshot_frames(self):
         timeNow = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
 
-        # First create the temporary table
-        query = """CREATE
-                   TEMPORARY TABLE IF NOT EXISTS retain_frames AS
-                   SELECT camera_id,
-                          timestamp,
-                          frame,
-                          filename
-                   FROM (
-                           (SELECT camera_id,
-                                   timestamp,
-                                   frame,
-                                   filename
-                            FROM snapshot_frame a
-                            WHERE timestamp >= subdate(%s, INTERVAL 7 DAY))
-                         UNION
-                           (SELECT camera_id,
-                                   timestamp,
-                                   frame,
-                                   filename
-                            FROM snapshot_frame b
-                            WHERE timestamp < subdate(%s, INTERVAL 7 DAY)
-                              AND timestamp >= subdate(%s, INTERVAL 4 WEEK)
-                              AND minute(timestamp) = 0)
-                         UNION
-                           (SELECT camera_id,
-                                   timestamp,
-                                   frame,
-                                   filename
-                            FROM snapshot_frame c
-                            WHERE timestamp < subdate(%s, INTERVAL 4 WEEK)
-                              AND timestamp >= subdate(%s, INTERVAL 3 MONTH)
-                              AND hour(timestamp) IN (6,
-                                                      12,
-                                                      18)
-                              AND minute(timestamp) = 0)
-                         UNION
-                           (SELECT camera_id,
-                                   timestamp,
-                                   frame,
-                                   filename
-                            FROM snapshot_frame d
-                            WHERE timestamp < subdate(%s, INTERVAL 3 MONTH)
-                              AND hour(timestamp) = 12
-                              AND minute(timestamp) = 0)) e""" % (timeNow,
-                                                                 timeNow,
-                                                                 timeNow,
-                                                                 timeNow,
-                                                                 timeNow,
-                                                                 timeNow)
-        cursor = self.__open()
-        self.__run_query(query, cursor=cursor)
+        query = """SELECT camera_id, timestamp, frame, filename FROM snapshot_frame a
+                WHERE (timestamp < subdate(%s, INTERVAL 7 DAY)
+                     AND timestamp >= subdate(%s, INTERVAL 4 WEEK)
+                     AND minute(timestamp) != 0)
+                OR (timestamp < subdate(%s, INTERVAL 4 WEEK)
+                     AND timestamp >= subdate(%s, INTERVAL 3 MONTH)
+                     AND (hour(timestamp) NOT IN (6,12, 18)
+                     AND minute(timestamp) != 0))
+                OR (timestamp < subdate(%s, INTERVAL 3 MONTH)
+                     AND (hour(timestamp) != 12
+                     AND minute(timestamp) != 0))""" %(timeNow, timeNow, timeNow, timeNow, timeNow)
 
-        # Select just the snapshot filenames that are stale
-        query = """SELECT camera_id,
-                          timestamp,
-                          frame,
-                          filename
-                   FROM snapshot_frame a
-                   WHERE timestamp < %s
-                     AND NOT EXISTS
-                       (SELECT camera_id,
-                               timestamp,
-                               frame,
-                               filename
-                        FROM retain_frames b
-                        WHERE a.camera_id = b.camera_id
-                          AND a.timestamp = b.timestamp
-                          AND a.frame = b.frame)""" % timeNow
-        return self.__run_query(query, cursor=cursor)
+        return self.__run_query(query)
 
     def get_stale_motion_frames(self):
         self.__logger.debug("Listing stale motion files in the DB")

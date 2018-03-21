@@ -79,7 +79,7 @@ class AuditorThread(threading.Thread):
         filename = self.__split_all(filepath)[7]
         date = filename.split("-")[0]
         time = filename.split("-")[1]
-        return "%s%s" % (date, time)
+        return "{}{}".format(date, time)
 
     def __get_starttime_from_motion_event(self, event):
         return event.split("-")[0]
@@ -143,22 +143,25 @@ class AuditorThread(threading.Thread):
                     for filename in files:
                         filepath = os.path.join(root, filename)
 
-                        eventId = self.__get_event_from_motion_filepath(filepath),
-                        cameraId = self.__get_camera_from_filepath(filepath),
-                        timestamp = self.__get_timestamp_from_motion_filepath(filepath),
+                        eventId = self.__get_event_from_motion_filepath(filepath)
+                        cameraId = self.__get_camera_from_filepath(filepath)
+                        timestamp = self.__get_timestamp_from_motion_filepath(filepath)
                         frame = self.__get_frame_from_motion_filepath(filepath)
 
                         # Some validation
                         try:
-                            if (self.__split_all(filepath) != 7 or frame < 0
-                                    or datetime.datetime.strptime(timestamp, "%Y%m%d-%H%M%S")):
-                                raise ValueError("Couldn't parse frame")
-                        except ValueError:
-                            self.__logger.warning(
-                                "Invalid frame, deleting it and skipping: eventId={}, frame={}, filepath={}, timestamp={}".format(
-                                    eventId, frame, filepath, timestamp))
-                            delete_path(filename)
-                            delete_dir_if_empty(root, True)
+                            if len(self.__split_all(filepath)) != 8:
+                                raise ValueError("Not right number of parts in filepath: {}".format(filepath))
+                            if int(frame) < 0:
+                                raise ValueError("Frame isn't positive integer: {}".format(frame))
+                            self.__logger.info(timestamp)
+                            datetime.datetime.strptime(timestamp, "%Y%m%d%H%M%S")
+#                                raise ValueError("Couldn't parse timestamp: {}".format(timestamp))
+                        except ValueError as e:
+                            self.__logger.exception(e)
+                            self.__logger.warning("Invalid frame, should delete it and skipping {}".format(filename))
+                            #delete_path(filename)
+                            #delete_dir_if_empty(root, True)
                             continue
 
                         row = (eventId, cameraId, timestamp, frame, 0, filepath)
@@ -297,12 +300,12 @@ class SweeperThread(threading.Thread):
             raise
 
     def run(self):
-        self.__logger.info("Sweeping the snapshot frames")
-        self.__sweep_snapshot_frames()
-        self.__logger.info("Snapshot sweeping finished")
         self.__logger.info("Sweeping the motion frames")
         self.__sweep_motion_frames()
         self.__logger.info("Motion sweeping finished")
+        self.__logger.info("Sweeping the snapshot frames")
+        self.__sweep_snapshot_frames()
+        self.__logger.info("Snapshot sweeping finished")
 
 
 class Sweeper():
