@@ -12,10 +12,13 @@ class ZabbixWriter():
     __ZABBIX_HOST = "camera%s"
 
     
-    def __init__(self, config):
+    def __init__(self, mm):
         
         self.__logger = logging.getLogger(__name__)
-        
+
+        self.mm = mm
+        config = mm.config
+
         self.__zabbix_server = config.ZABBIX_SERVER_ADDR
         self.__logger.info("Initialised")
 

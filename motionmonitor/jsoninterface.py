@@ -6,7 +6,7 @@ Created on 11/08/2013
 from PIL import Image as PILImage
 from StringIO import StringIO
 from gi.repository import GObject
-from monitor.cameramonitor import Event, Frame
+from motionmonitor.cameramonitor import Event, Frame
 import base64
 import datetime
 import json
@@ -141,9 +141,12 @@ class JSONInterface():
     _CONFIG_target_dir = '/data/motion/'
     _CONFIG_snapshot_filename = 'snapshots/camera%t/%Y/%m/%d/%H/%M/%S-snapshot.jpg'
 
-    def __init__(self, config, camera_monitor):
+    def __init__(self, mm, camera_monitor):
         self.__logger = logging.getLogger(__name__)
-        
+
+        self.mm = mm
+        config = mm.config
+
         self.__camera_monitor = camera_monitor
         
         # Initialise server and start listening.

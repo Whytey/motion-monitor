@@ -5,7 +5,7 @@ Created on 11/08/2013
 '''
 
 import logging
-import monitor.sqlexchanger
+import motionmonitor.sqlexchanger
 import os
 import threading
 import datetime
@@ -154,9 +154,7 @@ class AuditorThread(threading.Thread):
                                 raise ValueError("Not right number of parts in filepath: {}".format(filepath))
                             if int(frame) < 0:
                                 raise ValueError("Frame isn't positive integer: {}".format(frame))
-                            self.__logger.info(timestamp)
                             datetime.datetime.strptime(timestamp, "%Y%m%d%H%M%S")
-#                                raise ValueError("Couldn't parse timestamp: {}".format(timestamp))
                         except ValueError as e:
                             self.__logger.exception(e)
                             self.__logger.warning("Invalid frame, should delete it and skipping {}".format(filename))
@@ -200,8 +198,11 @@ class AuditorThread(threading.Thread):
 
 class Auditor():
 
-    def __init__(self, config):
+    def __init__(self, mm):
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
+        self.mm = mm
+        config = mm.config
+
         self.__logger.info("Initialised")
         self.__thread = None
 
@@ -212,7 +213,7 @@ class Auditor():
         if not self.__thread or not self.__thread.isAlive():
             # Create a thread and start it
             self.__logger.info("Creating a new AuditorThread and starting it")
-            sqlwriter = monitor.sqlexchanger.SQLWriter()
+            sqlwriter = motionmonitor.sqlexchanger.SQLWriter()
             self.__thread = AuditorThread(sqlwriter)
             self.__thread.start()
         else:
@@ -310,8 +311,12 @@ class SweeperThread(threading.Thread):
 
 class Sweeper():
 
-    def __init__(self, config):
+    def __init__(self, mm):
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
+
+        self.mm = mm
+        config = mm.config
+
         self.__logger.info("Initialised")
         self.__thread = None
 
@@ -322,7 +327,7 @@ class Sweeper():
         if not self.__thread or not self.__thread.isAlive():
             # Create a thread and start it
             self.__logger.info("Creating a new SweeperThread and starting it")
-            sqlwriter = monitor.sqlexchanger.SQLWriter()
+            sqlwriter = motionmonitor.sqlexchanger.SQLWriter()
             self.__thread = SweeperThread(sqlwriter)
             self.__thread.start()
         else:

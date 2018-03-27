@@ -12,14 +12,14 @@ import logging
 import socket
 import time
 
-import monitor.config
+import motionmonitor.config
 
 def _request_data(data):
     # Get the data from the socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-    sock.connect((monitor.config.JSON_SOCKET_ADDR, monitor.config.JSON_SOCKET_PORT))
+    sock.connect((motionmonitor.config.JSON_SOCKET_ADDR, motionmonitor.config.JSON_SOCKET_PORT))
     sock.send(json.dumps(data))
     rxd_data = []
     while True:

@@ -7,7 +7,7 @@ from collections import deque
 from datetime import datetime
 from gi.repository import GObject
 import logging
-import monitor.sqlexchanger
+import motionmonitor.sqlexchanger
 
 class Frame():
     def __init__(self, cameraId, timestamp, frameNum, filename):
@@ -36,7 +36,7 @@ class Frame():
     
     @staticmethod        
     def get(params):
-        sqlwriter = monitor.sqlexchanger.SQLWriter()
+        sqlwriter = motionmonitor.sqlexchanger.SQLWriter()
 
         assert "cameraId" in params, "No cameraId is specified: %s" % params
         assert "startTime" in params, "No startTime is specified: %s" % params
@@ -162,7 +162,7 @@ class Event():
     
     @staticmethod        
     def get(params):
-        sqlwriter = monitor.sqlexchanger.SQLWriter()
+        sqlwriter = motionmonitor.sqlexchanger.SQLWriter()
 
         assert "eventId" in params, "No eventId is specified: %s" % params
         assert "cameraId" in params, "No cameraId is specified: %s" % params
@@ -192,7 +192,7 @@ class Event():
     @staticmethod        
     def list(params):
         # Returns the list of motion events from the DB only.
-        sqlwriter = monitor.sqlexchanger.SQLWriter()
+        sqlwriter = motionmonitor.sqlexchanger.SQLWriter()
         
         fromTimestamp = None
         if "fromTimestamp" in params:
@@ -302,11 +302,16 @@ class CameraMonitor(GObject.GObject):
                                 (GObject.TYPE_PYOBJECT,))
     }
 
-    def __init__(self, config):
+    def __init__(self, mm):
         GObject.GObject.__init__(self)
         
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
+
+        self.mm = mm
+        config = mm.config
+
         self.__cameras = {}
+        self.__jobs = []
         
         self.__logger.info("Initialised")
 

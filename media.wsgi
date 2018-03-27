@@ -6,7 +6,7 @@ import json
 import re
 import socket
 import sys
-from monitor.stream.handlers import SnapshotFrameHandler, MotionFrameHandler, MotionVideoHandler, TimelapseVideoHandler, LiveFrameHandler, LiveVideoHandler
+from motionmonitor.stream.handlers import SnapshotFrameHandler, MotionFrameHandler, MotionVideoHandler, TimelapseVideoHandler, LiveFrameHandler, LiveVideoHandler
 
 
 JSON_TYPE = "JSON"
