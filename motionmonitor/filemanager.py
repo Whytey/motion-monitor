@@ -232,7 +232,7 @@ class SweeperThread(threading.Thread):
 
         self.__job = motionmonitor.core.Job("Sweeper")
 
-        self.__sqlwriter = motionmonitor.sqlexchanger.SQLWriter()
+        self.__sqlwriter = motionmonitor.sqlexchanger.SQLWriter(self.mm)
 
         # Extract the following from the config
         self.target_dir = '/data/motion'

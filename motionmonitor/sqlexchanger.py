@@ -39,7 +39,7 @@ class SQLWriter():
 
     def __init__(self, mm):
         self.mm = mm
-        DB(self)
+        DB(self.mm)
 
 
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))

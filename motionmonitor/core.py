@@ -154,11 +154,13 @@ class EventBus(object):
         """Fire an event."""
         listeners = self._listeners.get(event_type, [])
         match_all_listeners = self._listeners.get(MATCH_ALL)
-        listeners = match_all_listeners + listeners
+
+	if match_all_listeners:
+            listeners = match_all_listeners + listeners
 
         event = Event(event_type, event_data)
 
-        self.__logger.info("Handling %s", event)
+        self.__logger.info("Handling {} with {}".format(event, listeners))
 
         if not listeners:
             return
