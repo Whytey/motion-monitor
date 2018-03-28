@@ -18,9 +18,8 @@ def __setup_logger():
     logger.setLevel(logging.getLevelName("INFO"))
 
     # Determine the path to the log file.
-    __in_development = os.path.exists(os.path.join(os.getcwd(), 'setup.py'))
     log_path = os.path.join(os.sep, 'var', 'log', 'motion-monitor')
-    if __in_development:
+    if __is_running_in_dev():
         # We are working in a development environment
         log_path = os.path.join(os.sep, 'tmp', 'motion-monitor')
 
@@ -44,6 +43,10 @@ def __setup_logger():
     logger.addHandler(console_handler)
 
     return logger
+
+
+def __is_running_in_dev():
+    return os.path.exists(os.path.join(os.getcwd(), 'setup.py'))
 
 
 if __name__ == '__main__':

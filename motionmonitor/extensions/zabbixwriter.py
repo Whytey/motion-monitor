@@ -5,6 +5,7 @@ Created on 08/08/2013
 '''
 import logging
 import subprocess
+from motionmonitor.const import EVENT_CAMERA_ACTIVITY
 
 class ZabbixWriter():
     
@@ -14,10 +15,13 @@ class ZabbixWriter():
     
     def __init__(self, mm):
         
-        self.__logger = logging.getLogger(__name__)
+        self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
 
         self.mm = mm
         config = mm.config
+
+        # We care about camera activity, register a handler.
+        self.mm.bus.listen(EVENT_CAMERA_ACTIVITY, self.new_handle_camera_activity)
 
         self.__zabbix_server = config.ZABBIX_SERVER_ADDR
         self.__logger.info("Initialised")
@@ -42,3 +46,6 @@ class ZabbixWriter():
             self.__logger.exception(e)
             raise
         return True
+
+    def new_handle_camera_activity(self, event):
+        pass

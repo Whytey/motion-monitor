@@ -10,7 +10,7 @@ data = dict(
     description = 'motion-monitor is used to motionmonitor and handle events relating to the motion security camera software',
     author = 'David Whyte',
     author_email = 'david@thewhytehouse.org',
-    packages =      ['motionmonitor', 'motionmonitor.stream'],
+    packages =      ['motionmonitor', 'motionmonitor.stream', 'motionmonitor.extensions'],
     scripts = ['motion-monitor'],
     data_files = [('/etc/init', ['motion-monitor.conf']),
                   ('/etc/apache2/sites-enabled', ['motion-monitor_apache.conf']),

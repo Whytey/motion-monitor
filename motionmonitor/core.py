@@ -1,13 +1,13 @@
 import logging
 import time
 from motionmonitor.const import (
-    MATCH_ALL
+    MATCH_ALL, EVENT_JOB
 )
 import motionmonitor.config
 import motionmonitor.socketlistener
 import motionmonitor.sqlexchanger
 import motionmonitor.filemanager
-import motionmonitor.zabbixwriter
+import motionmonitor.extensions.zabbixwriter
 import motionmonitor.cameramonitor
 import motionmonitor.jsoninterface
 
@@ -22,11 +22,12 @@ class MotionMonitor(object):
 
         self._jobs = {}
 
+        self.bus.listen(EVENT_JOB, self.job_handler)
+
         self.__socket_listener = motionmonitor.socketlistener.SocketListener(self)
         self.__camera_monitor = motionmonitor.cameramonitor.CameraMonitor(self)
-        self.__zabbixwriter = motionmonitor.zabbixwriter.ZabbixWriter(self)
-        motionmonitor.sqlexchanger.DB(self)
-        self.__live_sqlwriter = motionmonitor.sqlexchanger.SQLWriter()
+        self.__zabbixwriter = motionmonitor.extensions.zabbixwriter.ZabbixWriter(self)
+        self.__live_sqlwriter = motionmonitor.sqlexchanger.SQLWriter(self)
 
         # SocketListener MOTION_EVENTs should be handled by the CameraMonitor.
         self.__socket_listener.connect(self.__socket_listener.MOTION_EVENT,
@@ -53,20 +54,29 @@ class MotionMonitor(object):
 
         self.__json_interface = motionmonitor.jsoninterface.JSONInterface(self, self.__camera_monitor)
 
+        self.__logger.info("Initialised...")
+
+    def job_handler(self, event):
+        self.__logger.debug("Handling a job event: {}".format(event))
+        pass
 
 class Job:
-    def __init__(self, name, start_time):
+    def __init__(self, name):
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
 
         self.name = name
-        self.__start_time = start_time
         self.__progress = 0
-        self.__update_time = start_time
+        self.progress_description = ""
+        self.__update_time = None
         self.__status_text = None
 
     def update_status(self, progress, description):
         self.progress = progress
+        self.progress_description = description
         self.__update_time = time.time()
+
+    def start(self):
+        self.update_status(0, "Started")
 
     @property
     def progress(self):
@@ -90,8 +100,6 @@ class Job:
 
 class Event(object):
     """Representation of an event within the bus."""
-
-    __slots__ = ['event_type', 'data', 'origin', 'time_fired']
 
     def __init__(self, event_type, data=None, time_fired=None):
         """Initialize a new event."""

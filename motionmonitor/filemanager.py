@@ -6,9 +6,11 @@ Created on 11/08/2013
 
 import logging
 import motionmonitor.sqlexchanger
+import motionmonitor.core
 import os
 import threading
 import datetime
+from motionmonitor.const import EVENT_JOB
 
 
 def delete_path(path):
@@ -158,8 +160,8 @@ class AuditorThread(threading.Thread):
                         except ValueError as e:
                             self.__logger.exception(e)
                             self.__logger.warning("Invalid frame, should delete it and skipping {}".format(filename))
-                            #delete_path(filename)
-                            #delete_dir_if_empty(root, True)
+                            # delete_path(filename)
+                            # delete_dir_if_empty(root, True)
                             continue
 
                         row = (eventId, cameraId, timestamp, frame, 0, filepath)
@@ -222,15 +224,20 @@ class Auditor():
 
 class SweeperThread(threading.Thread):
 
-    def __init__(self, sqlwriter):
+    def __init__(self, mm):
         threading.Thread.__init__(self)
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
-        self.__logger.info("Initialised")
 
-        self.__sqlwriter = sqlwriter
+        self.mm = mm
+
+        self.__job = motionmonitor.core.Job("Sweeper")
+
+        self.__sqlwriter = motionmonitor.sqlexchanger.SQLWriter()
 
         # Extract the following from the config
         self.target_dir = '/data/motion'
+
+        self.__logger.info("Initialised")
 
     def __sweep_snapshot_frames(self):
         try:
@@ -301,12 +308,19 @@ class SweeperThread(threading.Thread):
             raise
 
     def run(self):
+        self.__job.start()
+        self.__job.update_status(1, "Sweeping motion frames")
+        self.mm.bus.fire(EVENT_JOB, self.__job)
         self.__logger.info("Sweeping the motion frames")
         self.__sweep_motion_frames()
         self.__logger.info("Motion sweeping finished")
+        self.__job.update_status(50, "Sweeping snapshot frames")
+        self.mm.bus.fire(EVENT_JOB, self.__job)
         self.__logger.info("Sweeping the snapshot frames")
         self.__sweep_snapshot_frames()
         self.__logger.info("Snapshot sweeping finished")
+        self.__job.update_status(100, "Sweeping finished!")
+        self.mm.bus.fire(EVENT_JOB, self.__job)
 
 
 class Sweeper():
@@ -327,8 +341,7 @@ class Sweeper():
         if not self.__thread or not self.__thread.isAlive():
             # Create a thread and start it
             self.__logger.info("Creating a new SweeperThread and starting it")
-            sqlwriter = motionmonitor.sqlexchanger.SQLWriter()
-            self.__thread = SweeperThread(sqlwriter)
+            self.__thread = SweeperThread(self.mm)
             self.__thread.start()
         else:
             self.__logger.warning("SweeperThread is already running")
