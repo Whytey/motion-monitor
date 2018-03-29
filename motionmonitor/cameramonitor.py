@@ -161,8 +161,7 @@ class Event():
         return Event(eventId, cameraId, startTime)
     
     @staticmethod        
-    def get(params):
-        sqlwriter = motionmonitor.sqlexchanger.SQLWriter()
+    def get(sqlwriter, params):
 
         assert "eventId" in params, "No eventId is specified: %s" % params
         assert "cameraId" in params, "No cameraId is specified: %s" % params
@@ -190,10 +189,9 @@ class Event():
         return events
     
     @staticmethod        
-    def list(params):
+    def list(sqlwriter, params):
         # Returns the list of motion events from the DB only.
-        sqlwriter = motionmonitor.sqlexchanger.SQLWriter()
-        
+
         fromTimestamp = None
         if "fromTimestamp" in params:
             fromTimestamp = params["fromTimestamp"]

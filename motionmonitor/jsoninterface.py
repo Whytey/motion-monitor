@@ -7,6 +7,7 @@ from PIL import Image as PILImage
 from StringIO import StringIO
 from gi.repository import GObject
 from motionmonitor.cameramonitor import Event, Frame
+import motionmonitor.sqlexchanger
 import base64
 import datetime
 import json
@@ -45,7 +46,7 @@ class Image():
     
     def _get_image_data(self):
         # Need to ensure we only serve up motion files.
-        assert self._path.startswith("/data/motion/"), "Not a motion file: %s" % self._path
+        assert self._path.startswith(self._CONFIG_target_dir), "Not a motion file: %s" % self._path
         
         # TODO: Need to only serve up jpeg files.
 
@@ -211,7 +212,8 @@ class JSONInterface():
                     response["count"] = len(results_json)
 
                 if msg["method"] == "event.get":
-                    results = Event.get(msg["params"])
+                    sqlwriter = motionmonitor.sqlexchanger.SQLWriter(self.mm)
+                    results = Event.get(sqlwriter, msg["params"])
                     results_json = []
                     for result in results:
                         results_json.append(result.toJSON(True))
@@ -219,7 +221,8 @@ class JSONInterface():
                     response["count"] = len(results_json)
                 
                 if msg["method"] == "event.list":
-                    results = Event.list(msg["params"])
+                    sqlwriter = motionmonitor.sqlexchanger.SQLWriter(self.mm)
+                    results = Event.list(sqlwriter, msg["params"])
                     results_json = []
                     for result in results:
                         results_json.append(result.toJSON())
