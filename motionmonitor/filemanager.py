@@ -4,13 +4,17 @@ Created on 11/08/2013
 @author: djwhyte
 '''
 
+import datetime
 import logging
-import motionmonitor.sqlexchanger
-import motionmonitor.core
 import os
 import threading
-import datetime
-from motionmonitor.const import EVENT_JOB
+
+import motionmonitor.core
+import motionmonitor.sqlexchanger
+from motionmonitor.const import (
+    EVENT_JOB,
+    EVENT_MANAGEMENT_ACTIVITY
+)
 
 
 def delete_path(path):
@@ -203,19 +207,20 @@ class Auditor():
     def __init__(self, mm):
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
         self.mm = mm
-        config = mm.config
+
+        self.mm.bus.listen(EVENT_MANAGEMENT_ACTIVITY, self.audit)
 
         self.__logger.info("Initialised")
         self.__thread = None
 
-    def insert_orphaned_snapshots(self, object, msg):
-
+    def audit(self, event):
+        msg = event.data
         if not msg["type"] in ["audit"]: return
 
         if not self.__thread or not self.__thread.isAlive():
             # Create a thread and start it
             self.__logger.info("Creating a new AuditorThread and starting it")
-            sqlwriter = motionmonitor.sqlexchanger.SQLWriter()
+            sqlwriter = motionmonitor.sqlexchanger.SQLWriter(self.mm)
             self.__thread = AuditorThread(sqlwriter)
             self.__thread.start()
         else:
@@ -330,13 +335,14 @@ class Sweeper():
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
 
         self.mm = mm
-        config = mm.config
+
+        self.mm.bus.listen(EVENT_MANAGEMENT_ACTIVITY, self.sweep)
 
         self.__logger.info("Initialised")
         self.__thread = None
 
-    def sweep(self, object, msg):
-
+    def sweep(self, event):
+        msg = event.data
         if not msg["type"] in ["sweep"]: return
 
         if not self.__thread or not self.__thread.isAlive():

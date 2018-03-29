@@ -1,16 +1,17 @@
 import logging
 import time
+from collections import OrderedDict
+
+import motionmonitor.cameramonitor
+import motionmonitor.config
+import motionmonitor.extensions.zabbixwriter
+import motionmonitor.filemanager
+import motionmonitor.jsoninterface
+import motionmonitor.socketlistener
+import motionmonitor.sqlexchanger
 from motionmonitor.const import (
     MATCH_ALL, EVENT_JOB, MAX_JOBQ_SIZE
 )
-import motionmonitor.config
-import motionmonitor.socketlistener
-import motionmonitor.sqlexchanger
-import motionmonitor.filemanager
-import motionmonitor.extensions.zabbixwriter
-import motionmonitor.cameramonitor
-import motionmonitor.jsoninterface
-from collections import OrderedDict
 
 
 class MotionMonitor(object):
@@ -30,28 +31,9 @@ class MotionMonitor(object):
         self.__zabbixwriter = motionmonitor.extensions.zabbixwriter.ZabbixWriter(self)
         self.__live_sqlwriter = motionmonitor.sqlexchanger.SQLWriter(self)
 
-        # SocketListener MOTION_EVENTs should be handled by the CameraMonitor.
-        self.__socket_listener.connect(self.__socket_listener.MOTION_EVENT,
-                                       self.__camera_monitor.handle_motion_event)
-
-        # SocketListener MOTION_EVENTs should be handled by the SQLWriter.
-        self.__socket_listener.connect(self.__socket_listener.MOTION_EVENT,
-                                       self.__live_sqlwriter.handle_motion_event)
-
-        # CameraMonitor ACTIVITY_EVENTs are handled by the ZabbixWriter.
-        self.__camera_monitor.connect(self.__camera_monitor.ACTIVITY_EVENT,
-                                      self.__zabbixwriter.handle_camera_activity)
-
         # This is the sweeper and auditor.
         self.__sweeper = motionmonitor.filemanager.Sweeper(self)
         self.__auditor = motionmonitor.filemanager.Auditor(self)
-        # SocketListener MANAGEMENT_EVENTs should be handled by the Sweeper.
-        self.__socket_listener.connect(self.__socket_listener.MANAGEMENT_EVENT,
-                                       self.__sweeper.sweep)
-
-        # SocketListener MANAGEMENT_EVENTs should be handled by the Auditor.
-        self.__socket_listener.connect(self.__socket_listener.MANAGEMENT_EVENT,
-                                       self.__auditor.insert_orphaned_snapshots)
 
         self.__json_interface = motionmonitor.jsoninterface.JSONInterface(self, self.__camera_monitor)
 

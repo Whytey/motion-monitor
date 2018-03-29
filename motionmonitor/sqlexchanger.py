@@ -3,9 +3,12 @@ Created on 22/01/2014
 
 @author: djwhyte
 '''
-import logging
 import datetime
+import logging
+
 import MySQLdb
+
+from motionmonitor.const import EVENT_MOTION_INTERNAL
 
 
 class DB():
@@ -40,6 +43,10 @@ class SQLWriter():
     def __init__(self, mm):
         self.mm = mm
         DB(self.mm)
+
+        # We care about camera activity, register a handler.
+        self.mm.bus.listen(EVENT_MOTION_INTERNAL, self.handle_motion_event)
+
 
 
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
@@ -289,7 +296,8 @@ class SQLWriter():
     def get_timelapse(self, fromTimestamp, toTimestamp, interval):
         pass
 
-    def handle_motion_event(self, object, msg):
+    def handle_motion_event(self, event):
+        msg = event.data
         try:
             self.__logger.debug("Handling a message: %s" % msg)
             if msg["type"] not in ["picture_save", "event_start", "event_end"]:

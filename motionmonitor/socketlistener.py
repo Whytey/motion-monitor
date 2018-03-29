@@ -4,25 +4,20 @@ Created on 24/07/2013
 @author: djwhyte
 '''
 
-from gi.repository import GObject
 import json
 import logging
 import socket
+from gi.repository import GObject
 
-class SocketListener(GObject.GObject):
-    
-    MOTION_EVENT = "motion_event"
-    MANAGEMENT_EVENT = "management_event"
-    
-    __gsignals__ = {
-        MOTION_EVENT: (GObject.SIGNAL_RUN_LAST, None, (GObject.TYPE_PYOBJECT,)),
-        MANAGEMENT_EVENT: (GObject.SIGNAL_RUN_LAST, None, (GObject.TYPE_PYOBJECT,))
-    }
+from motionmonitor.const import (
+    EVENT_MOTION_INTERNAL,
+    EVENT_MANAGEMENT_ACTIVITY
+)
 
-        
+
+class SocketListener():
+    
     def __init__(self, mm):
-        GObject.GObject.__init__(self)
-        
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
 
         self.mm = mm
@@ -53,10 +48,10 @@ class SocketListener(GObject.GObject):
                            "movie_end",
                            "movie_start",
                            "picture_save"]:
-            return self.MOTION_EVENT
+            return EVENT_MOTION_INTERNAL
         
         if msg["type"] in ["sweep", "audit"]:
-            return self.MANAGEMENT_EVENT
+            return EVENT_MANAGEMENT_ACTIVITY
         
         assert False, "Unknown message type: %s" % msg["type"]
 
@@ -70,11 +65,7 @@ class SocketListener(GObject.GObject):
                 self.__logger.debug("Rxd raw data: %s" % line)
                 msg = json.loads(line)
                 msg_type = self.__validate_msg(msg)
-                if msg_type == self.MANAGEMENT_EVENT:
-                    self.emit(self.MANAGEMENT_EVENT, msg)
-                if msg_type == self.MOTION_EVENT:
-                    self.emit(self.MOTION_EVENT, msg)
-                        
+                self.mm.bus.fire(msg_type, msg)
         except Exception as e:
             self.__logger.exception(e)
             raise

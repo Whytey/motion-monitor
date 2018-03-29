@@ -4,15 +4,15 @@ Created on 09/04/2014
 @author: djwhyte
 '''
 
-from abc import ABCMeta, abstractmethod
 import base64
-import datetime
 import json
 import logging
 import socket
 import time
+from abc import ABCMeta, abstractmethod
 
 import motionmonitor.config
+
 
 def _request_data(data):
     # Get the data from the socket

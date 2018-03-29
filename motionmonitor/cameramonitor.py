@@ -3,11 +3,16 @@ Created on 11/08/2013
 
 @author: djwhyte
 '''
+import logging
 from collections import deque
 from datetime import datetime
-from gi.repository import GObject
-import logging
+
 import motionmonitor.sqlexchanger
+from motionmonitor.const import (
+    EVENT_CAMERA_ACTIVITY,
+    EVENT_MOTION_INTERNAL
+)
+
 
 class Frame():
     def __init__(self, cameraId, timestamp, frameNum, filename):
@@ -288,10 +293,7 @@ class Camera():
                 "lastSnapshot": last_snapshot_json,
                 "recentMotion": recent_motion_json}
     
-class CameraMonitor(GObject.GObject):
-    
-    ACTIVITY_EVENT = "event_state"
-    MOTION_DETECTED_EVENT = "motion_detected"
+class CameraMonitor():
     
     __gsignals__ = {
         ACTIVITY_EVENT: (GObject.SIGNAL_RUN_LAST, None,
@@ -301,12 +303,11 @@ class CameraMonitor(GObject.GObject):
     }
 
     def __init__(self, mm):
-        GObject.GObject.__init__(self)
-        
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
 
         self.mm = mm
-        config = mm.config
+        self.mm.bus.listen(EVENT_MOTION_INTERNAL, self.handle_motion_event)
+
 
         self.__cameras = {}
         self.__jobs = []
@@ -318,8 +319,9 @@ class CameraMonitor(GObject.GObject):
         return self.__cameras
         
        
-    def handle_motion_event(self, object, msg):
+    def handle_motion_event(self, event):
         try:
+            msg = event.data
             self.__logger.debug("Handling a message: %s" % msg)
             
             # Get the camera responsible for this event.
@@ -334,7 +336,7 @@ class CameraMonitor(GObject.GObject):
             
             if msg["type"] in ["event_end", "event_start"]:
                 camera.handle_activity(msg)
-                self.emit(self.ACTIVITY_EVENT, camera)
+                self.mm.bus.fire(EVENT_CAMERA_ACTIVITY, camera)
                 
             if msg["type"] in ["picture_save"]:
                 camera.handle_picture(msg)

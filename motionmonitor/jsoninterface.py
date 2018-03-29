@@ -3,17 +3,18 @@ Created on 11/08/2013
 
 @author: djwhyte
 '''
-from PIL import Image as PILImage
-from StringIO import StringIO
-from gi.repository import GObject
-from motionmonitor.cameramonitor import Event, Frame
-import motionmonitor.sqlexchanger
 import base64
 import datetime
 import json
 import logging
 import socket
-   
+from PIL import Image as PILImage
+from StringIO import StringIO
+from gi.repository import GObject
+
+import motionmonitor.sqlexchanger
+from motionmonitor.cameramonitor import Event, Frame
+
 
 class Image():
     """This is an Image object, as represented in JSON"""
