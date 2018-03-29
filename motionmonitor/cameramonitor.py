@@ -295,13 +295,6 @@ class Camera():
     
 class CameraMonitor():
     
-    __gsignals__ = {
-        ACTIVITY_EVENT: (GObject.SIGNAL_RUN_LAST, None,
-                                (GObject.TYPE_PYOBJECT,)),
-        MOTION_DETECTED_EVENT: (GObject.SIGNAL_RUN_LAST, None,
-                                (GObject.TYPE_PYOBJECT,))
-    }
-
     def __init__(self, mm):
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
 
