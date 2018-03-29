@@ -1,7 +1,7 @@
 import logging
 import time
 from motionmonitor.const import (
-    MATCH_ALL, EVENT_JOB
+    MATCH_ALL, EVENT_JOB, MAX_JOBQ_SIZE
 )
 import motionmonitor.config
 import motionmonitor.socketlistener
@@ -10,6 +10,7 @@ import motionmonitor.filemanager
 import motionmonitor.extensions.zabbixwriter
 import motionmonitor.cameramonitor
 import motionmonitor.jsoninterface
+from collections import OrderedDict
 
 
 class MotionMonitor(object):
@@ -20,7 +21,7 @@ class MotionMonitor(object):
         self.config = motionmonitor.config
         self.bus = EventBus(self)
 
-        self._jobs = {}
+        self._jobs = OrderedDict()
 
         self.bus.listen(EVENT_JOB, self.job_handler)
 
@@ -58,17 +59,21 @@ class MotionMonitor(object):
 
     def job_handler(self, event):
         self.__logger.debug("Handling a job event: {}".format(event))
-        pass
+        job = event.data
+        self._jobs[job.id] = job
+        while (len(self._jobs) > MAX_JOBQ_SIZE):
+            self.__logger.debug("Too many jobs in the queue, popping the oldest")
+            self._jobs.popitem(False)
 
 class Job:
     def __init__(self, name):
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
 
+        self.id = "{}-{}".format(name, time.time())
         self.name = name
         self.__progress = 0
         self.progress_description = ""
         self.__update_time = None
-        self.__status_text = None
 
     def update_status(self, progress, description):
         self.progress = progress
@@ -82,21 +87,9 @@ class Job:
     def progress(self):
         return self.__progress
 
-    @progress.setter
-    def progress(self, value):
-        if value > 100:
-            self.__logger.debug("Provided value '{}' being forced to 100".format(value))
-            self.__progress = 100
-        elif value < 0:
-            self.__logger.debug("Provided value '{}' being forced to 0".format(value))
-            self.__progress = 0
-        else:
-            self.__progress = float(value)
-
-    @property
-    def eta(self):
-        return time.time()
-
+    def __repr__(self):
+        """Return the representation."""
+        return "<Job {}: {}, {}%>".format(self.id, self.__progress, self.__update_time)
 
 class Event(object):
     """Representation of an event within the bus."""

@@ -2,6 +2,6 @@
 MATCH_ALL = '*'
 
 EVENT_JOB = "event:job"
-
-
 EVENT_CAMERA_ACTIVITY = "event:camera_activity"
+
+MAX_JOBQ_SIZE = 10

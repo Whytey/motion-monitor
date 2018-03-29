@@ -38,7 +38,7 @@ class AuditorThread(threading.Thread):
         self.__sqlwriter = sqlwriter
 
         # Extract the following from the config
-        self.target_dir = '/data/motion'
+        self.target_dir = self.mm.config.TARGET_DIR
 
         # Extract the following from the config
         self.snapshot_filename = 'snapshots/camera%t/%Y/%m/%d/%H/%M/%S-snapshot.jpg'
@@ -235,11 +235,12 @@ class SweeperThread(threading.Thread):
         self.__sqlwriter = motionmonitor.sqlexchanger.SQLWriter(self.mm)
 
         # Extract the following from the config
-        self.target_dir = '/data/motion'
+        self.target_dir = self.mm.config.TARGET_DIR
 
         self.__logger.info("Initialised")
 
     def __sweep_snapshot_frames(self):
+
         try:
             stale_files = []
             stale_files.extend(self.__sqlwriter.get_stale_snapshot_frames())
