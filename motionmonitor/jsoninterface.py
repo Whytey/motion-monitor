@@ -213,8 +213,7 @@ class JSONInterface():
                     response["count"] = len(results_json)
 
                 if msg["method"] == "event.get":
-                    sqlwriter = motionmonitor.sqlexchanger.SQLWriter(self.mm)
-                    results = Event.get(sqlwriter, msg["params"])
+                    results = Event.get(self.mm.db, msg["params"])
                     results_json = []
                     for result in results:
                         results_json.append(result.toJSON(True))
@@ -222,8 +221,7 @@ class JSONInterface():
                     response["count"] = len(results_json)
                 
                 if msg["method"] == "event.list":
-                    sqlwriter = motionmonitor.sqlexchanger.SQLWriter(self.mm)
-                    results = Event.list(sqlwriter, msg["params"])
+                    results = Event.list(self.mm.db, msg["params"])
                     results_json = []
                     for result in results:
                         results_json.append(result.toJSON())
@@ -231,7 +229,7 @@ class JSONInterface():
                     response["count"] = len(results_json)
                     
                 if msg["method"] == "snapshot.get":
-                    results = Frame.get(msg["params"])
+                    results = Frame.get(self.mm.db, msg["params"])
                     results_json = []
                     for result in results:
                         results_json.append(result.toJSON())

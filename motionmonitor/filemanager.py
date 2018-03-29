@@ -220,8 +220,7 @@ class Auditor():
         if not self.__thread or not self.__thread.isAlive():
             # Create a thread and start it
             self.__logger.info("Creating a new AuditorThread and starting it")
-            sqlwriter = motionmonitor.sqlexchanger.SQLWriter(self.mm)
-            self.__thread = AuditorThread(sqlwriter)
+            self.__thread = AuditorThread(self.mm.db)
             self.__thread.start()
         else:
             self.__logger.warning("AuditorThread is already running")
@@ -237,7 +236,7 @@ class SweeperThread(threading.Thread):
 
         self.__job = motionmonitor.core.Job("Sweeper")
 
-        self.__sqlwriter = motionmonitor.sqlexchanger.SQLWriter(self.mm)
+        self.__sqlwriter = self.mm.db
 
         # Extract the following from the config
         self.target_dir = self.mm.config.TARGET_DIR

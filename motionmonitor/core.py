@@ -29,7 +29,7 @@ class MotionMonitor(object):
         self.__socket_listener = motionmonitor.socketlistener.SocketListener(self)
         self.__camera_monitor = motionmonitor.cameramonitor.CameraMonitor(self)
         self.__zabbixwriter = motionmonitor.extensions.zabbixwriter.ZabbixWriter(self)
-        self.__live_sqlwriter = motionmonitor.sqlexchanger.SQLWriter(self)
+        self.db = motionmonitor.sqlexchanger.SQLWriter(self)
 
         # This is the sweeper and auditor.
         self.__sweeper = motionmonitor.filemanager.Sweeper(self)
@@ -46,6 +46,7 @@ class MotionMonitor(object):
         while (len(self._jobs) > MAX_JOBQ_SIZE):
             self.__logger.debug("Too many jobs in the queue, popping the oldest")
             self._jobs.popitem(False)
+
 
 class Job:
     def __init__(self, name):
@@ -72,6 +73,7 @@ class Job:
     def __repr__(self):
         """Return the representation."""
         return "<Job {}: {}, {}%>".format(self.id, self.__progress, self.__update_time)
+
 
 class Event(object):
     """Representation of an event within the bus."""
@@ -130,12 +132,12 @@ class EventBus(object):
         listeners = self._listeners.get(event_type, [])
         match_all_listeners = self._listeners.get(MATCH_ALL)
 
-	if match_all_listeners:
+        if match_all_listeners:
             listeners = match_all_listeners + listeners
 
         event = Event(event_type, event_data)
 
-        self.__logger.info("Handling {} with {}".format(event, listeners))
+        self.__logger.debug("Handling {} with {}".format(event, listeners))
 
         if not listeners:
             return
