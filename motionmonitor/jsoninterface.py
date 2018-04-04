@@ -213,7 +213,7 @@ class JSONInterface():
                     response["count"] = len(results_json)
 
                 if msg["method"] == "event.get":
-                    results = Event.get(self.mm.db, msg["params"])
+                    results = Event.get(msg["params"])
                     results_json = []
                     for result in results:
                         results_json.append(result.toJSON(True))
@@ -221,7 +221,7 @@ class JSONInterface():
                     response["count"] = len(results_json)
                 
                 if msg["method"] == "event.list":
-                    results = Event.list(self.mm.db, msg["params"])
+                    results = Event.list(msg["params"])
                     results_json = []
                     for result in results:
                         results_json.append(result.toJSON())
@@ -229,7 +229,7 @@ class JSONInterface():
                     response["count"] = len(results_json)
                     
                 if msg["method"] == "snapshot.get":
-                    results = Frame.get(self.mm.db, msg["params"])
+                    results = Frame.get(msg["params"])
                     results_json = []
                     for result in results:
                         results_json.append(result.toJSON())

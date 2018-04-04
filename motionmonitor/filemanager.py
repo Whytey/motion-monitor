@@ -34,12 +34,11 @@ def delete_dir_if_empty(path, delParents=False):
 
 class AuditorThread(threading.Thread):
 
-    def __init__(self, sqlwriter):
+    def __init__(self, mm):
         threading.Thread.__init__(self)
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
-        self.__logger.info("Initialised")
 
-        self.__sqlwriter = sqlwriter
+        self.mm = mm
 
         # Extract the following from the config
         self.target_dir = self.mm.config.TARGET_DIR
@@ -49,6 +48,7 @@ class AuditorThread(threading.Thread):
 
         # Extract the following from the config
         self.motion_filename = 'motion/camera%t/%Y%m%d/%C/%Y%m%d-%H%M%S-%q.jpg'
+        self.__logger.info("Initialised")
 
     @staticmethod
     def __split_all(path):
@@ -194,12 +194,14 @@ class AuditorThread(threading.Thread):
             raise
 
     def run(self):
+        self.__sqlwriter = motionmonitor.sqlexchanger.SQLWriter(self.mm)
         self.__logger.info("Auditing the motion frames")
         self.__audit_motion_frames()
         self.__logger.info("Motion auditing finished")
         self.__logger.info("Auditing the snapshot frames")
         self.__audit_snapshot_frames()
         self.__logger.info("Snapshot auditing finished")
+        self.__sqlwriter.close()
 
 
 class Auditor():
@@ -220,7 +222,7 @@ class Auditor():
         if not self.__thread or not self.__thread.isAlive():
             # Create a thread and start it
             self.__logger.info("Creating a new AuditorThread and starting it")
-            self.__thread = AuditorThread(self.mm.db)
+            self.__thread = AuditorThread(self.mm)
             self.__thread.start()
         else:
             self.__logger.warning("AuditorThread is already running")
@@ -235,8 +237,6 @@ class SweeperThread(threading.Thread):
         self.mm = mm
 
         self.__job = motionmonitor.core.Job("Sweeper")
-
-        self.__sqlwriter = self.mm.db
 
         # Extract the following from the config
         self.target_dir = self.mm.config.TARGET_DIR
@@ -313,6 +313,7 @@ class SweeperThread(threading.Thread):
             raise
 
     def run(self):
+        self.__sqlwriter = motionmonitor.sqlexchanger.SQLWriter(self.mm)
         self.__job.start()
         self.__job.update_status(1, "Sweeping motion frames")
         self.mm.bus.fire(EVENT_JOB, self.__job)
@@ -326,6 +327,7 @@ class SweeperThread(threading.Thread):
         self.__logger.info("Snapshot sweeping finished")
         self.__job.update_status(100, "Sweeping finished!")
         self.mm.bus.fire(EVENT_JOB, self.__job)
+        self.__sqlwriter.close()
 
 
 class Sweeper():

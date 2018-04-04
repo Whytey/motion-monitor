@@ -45,11 +45,15 @@ class SQLWriter():
         DB(self.mm)
 
         # We care about camera activity, register a handler.
-        self.mm.bus.listen(EVENT_MOTION_INTERNAL, self.handle_motion_event)
+        self.__remove_listener_func = self.mm.bus.listen(EVENT_MOTION_INTERNAL, self.handle_motion_event)
 
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
         self.__logger.info("Initialised")
         self.__connection = None
+
+
+    def close(self):
+        self.__remove_listener_func()
 
     def __open(self):
         try:
