@@ -235,6 +235,7 @@ class SweeperThread(threading.Thread):
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
 
         self.mm = mm
+        self.__sqlwriter = motionmonitor.sqlexchanger.SQLWriter(self.mm)
 
         self.__job = motionmonitor.core.Job("Sweeper")
 
@@ -313,7 +314,6 @@ class SweeperThread(threading.Thread):
             raise
 
     def run(self):
-        self.__sqlwriter = motionmonitor.sqlexchanger.SQLWriter(self.mm)
         self.__job.start()
         self.__job.update_status(1, "Sweeping motion frames")
         self.mm.bus.fire(EVENT_JOB, self.__job)

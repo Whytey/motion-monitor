@@ -29,7 +29,7 @@ class MotionMonitor(object):
         self.__socket_listener = motionmonitor.socketlistener.SocketListener(self)
         self.__camera_monitor = motionmonitor.cameramonitor.CameraMonitor(self)
         self.__zabbixwriter = motionmonitor.extensions.zabbixwriter.ZabbixWriter(self)
-        self.db = motionmonitor.sqlexchanger.SQLWriter(self)
+        self.__sqlwriter = motionmonitor.sqlexchanger.SQLWriter(self)
 
         # This is the sweeper and auditor.
         self.__sweeper = motionmonitor.filemanager.Sweeper(self)

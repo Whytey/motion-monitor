@@ -11,38 +11,15 @@ import MySQLdb
 from motionmonitor.const import EVENT_MOTION_INTERNAL
 
 
-class DB():
-    __DB_SERVER_ADDR = None
-    __DB_NAME = None
-    __DB_USER = None
-    __DB_PASSWORD = None
-
-    def __init__(self, mm):
-        self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
-
-        self.mm = mm
-        config = mm.config
-
-        DB.__DB_SERVER_ADDR = config.DB_SERVER_ADDR
-        DB.__DB_NAME = config.DB_NAME
-        DB.__DB_USER = config.DB_USER
-        DB.__DB_PASSWORD = config.DB_PASSWORD
-
-        self.__logger.info("Initialised")
-
-    @staticmethod
-    def get_connection():
-        connection = MySQLdb.connect(host=DB.__DB_SERVER_ADDR, db=DB.__DB_NAME, user=DB.__DB_USER,
-                                             passwd=DB.__DB_PASSWORD)
-        return connection
-
-
-
 class SQLWriter():
 
     def __init__(self, mm):
         self.mm = mm
-        DB(self.mm)
+
+        self.__DB_SERVER_ADDR = self.mm.config.DB_SERVER_ADDR
+        self.__DB_NAME = self.mm.config.DB_NAME
+        self.__DB_USER = self.mm.config.DB_USER
+        self.__DB_PASSWORD = self.mm.config.DB_PASSWORD
 
         # We care about camera activity, register a handler.
         self.__remove_listener_func = self.mm.bus.listen(EVENT_MOTION_INTERNAL, self.handle_motion_event)
@@ -53,24 +30,23 @@ class SQLWriter():
 
 
     def close(self):
+        self.__logger.info("Closing SQLWriter {}".format(self))
         self.__remove_listener_func()
 
     def __open(self):
         try:
-            cnx = DB.get_connection()
-            self.__connection = cnx
-            return cnx.cursor()
+            self.__connection = MySQLdb.connect(host=self.__DB_SERVER_ADDR, db=self.__DB_NAME, user=self.__DB_USER,
+                                             passwd=self.__DB_PASSWORD)
+            return self.__connection.cursor()
         except MySQLdb.Error as e:
             self.__logger.exception("Error opening connection:", e)
 
     def __close(self):
         self.__connection.close()
 
-    def __run_query(self, query, params=None, cursor=None):
+    def __run_query(self, query, params=None):
 
-        cursor_provided = cursor is not None
-        if not cursor_provided:
-            cursor = self.__open()
+        cursor = self.__open()
 
 
         try:
@@ -83,8 +59,7 @@ class SQLWriter():
 
             results = cursor.fetchall()
 
-            if not cursor_provided:
-                self.__close()
+            self.__close()
 
             return results
         except Exception as e:
