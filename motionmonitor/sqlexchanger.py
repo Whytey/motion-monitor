@@ -35,7 +35,7 @@ class DBConnection():
     def __close(self):
         self.__connection.close()
 
-    def __run_query(self, query, params=None):
+    def run_query(self, query, params=None):
 
         cursor = self.__open()
 
