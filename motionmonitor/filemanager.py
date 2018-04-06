@@ -235,7 +235,7 @@ class SweeperThread(threading.Thread):
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
 
         self.mm = mm
-        self.__sqlreader = motionmonitor.sqlexchanger.SQLWriter(self.mm)
+        self.__sqlreader = motionmonitor.sqlexchanger.SQLReader(self.mm)
 
         self.__job = motionmonitor.core.Job("Sweeper")
 

@@ -186,7 +186,7 @@ class SQLReader():
         query = """DELETE
                    FROM motion_event
                    WHERE start_time < subdate(now(), interval 7 DAY)"""
-        self.run_query(query)
+        self.__connection.run_query(query)
 
         # Select just the motion filenames that are stale
         query = """SELECT event_id,
