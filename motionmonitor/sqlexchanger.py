@@ -11,32 +11,23 @@ import MySQLdb
 from motionmonitor.const import EVENT_MOTION_INTERNAL
 
 
-class SQLWriter():
-
-    def __init__(self, mm):
-        self.mm = mm
-
-        self.__DB_SERVER_ADDR = self.mm.config.DB_SERVER_ADDR
-        self.__DB_NAME = self.mm.config.DB_NAME
-        self.__DB_USER = self.mm.config.DB_USER
-        self.__DB_PASSWORD = self.mm.config.DB_PASSWORD
-
-        # We care about camera activity, register a handler.
-        self.__remove_listener_func = self.mm.bus.listen(EVENT_MOTION_INTERNAL, self.handle_motion_event)
-
+class DBConnection():
+    def __init__(self, config):
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
-        self.__logger.info("Initialised")
+
+        self.__DB_SERVER_ADDR = config.DB_SERVER_ADDR
+        self.__DB_NAME = config.DB_NAME
+        self.__DB_USER = config.DB_USER
+        self.__DB_PASSWORD = config.DB_PASSWORD
+
         self.__connection = None
 
-
-    def close(self):
-        self.__logger.info("Closing SQLWriter {}".format(self))
-        self.__remove_listener_func()
+        self.__logger.info("Initialised")
 
     def __open(self):
         try:
             self.__connection = MySQLdb.connect(host=self.__DB_SERVER_ADDR, db=self.__DB_NAME, user=self.__DB_USER,
-                                             passwd=self.__DB_PASSWORD)
+                                                passwd=self.__DB_PASSWORD)
             return self.__connection.cursor()
         except MySQLdb.Error as e:
             self.__logger.exception("Error opening connection:", e)
@@ -47,7 +38,6 @@ class SQLWriter():
     def __run_query(self, query, params=None):
 
         cursor = self.__open()
-
 
         try:
             self.__logger.debug("About to run query: %s" % query)
@@ -67,40 +57,15 @@ class SQLWriter():
             self.__connection.rollback()
             raise
 
-    def insert_snapshot_frames(self, frames):
-        self.__logger.debug("Inserting snapshot frame to the DB: %s" % frames)
-        # Insert the data to the DB.  Ignore any duplicates (as determined by the filename)
-        query = """INSERT
-                   IGNORE INTO snapshot_frame (camera_id, timestamp, frame, filename)
-                   VALUES (%s,
-                           %s,
-                           %s,
-                           %s)"""
 
-        self.__run_query(query, frames)
+class SQLReader():
+    def __init__(self, mm):
+        self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
 
-    def insert_motion_frames(self, frames):
-        self.__logger.debug("Inserting motion frame to the DB: %s" % frames)
-        # Insert the data to the DB.  Ignore any duplicates (as determined by the filename)
-        query = """INSERT
-                   IGNORE INTO motion_frame (event_id, camera_id, timestamp, frame, score, filename)
-                   VALUES (%s,
-                           %s,
-                           %s,
-                           %s,
-                           %s,
-                           %s)"""
-        self.__run_query(query, frames)
+        self.mm = mm
+        self.__connection = DBConnection(self.mm.config)
 
-    def insert_motion_events(self, events):
-        self.__logger.debug("Inserting motion event to the DB: %s" % events)
-        # Insert the data to the DB.  Ignore any duplicates (as determined by the filename)
-        query = """INSERT
-                   IGNORE INTO motion_event (event_id, camera_id, start_time)
-                   VALUES (%s,
-                           %s,
-                           %s)"""
-        self.__run_query(query, events)
+        self.__logger.info("Initialised")
 
     def delete_snapshot_frame(self, frames):
         self.__logger.debug("Deleting snapshot frames from the DB: %s" % frames)
@@ -211,7 +176,7 @@ class SQLWriter():
                      AND minute(timestamp) != 0))
                 OR (timestamp < subdate(%s, INTERVAL 3 MONTH)
                      AND (hour(timestamp) != 12
-                     AND minute(timestamp) != 0))""" %(timeNow, timeNow, timeNow, timeNow, timeNow)
+                     AND minute(timestamp) != 0))""" % (timeNow, timeNow, timeNow, timeNow, timeNow)
 
         return self.__run_query(query)
 
@@ -272,6 +237,59 @@ class SQLWriter():
 
     def get_timelapse(self, fromTimestamp, toTimestamp, interval):
         pass
+
+class SQLWriter():
+
+    def __init__(self, mm):
+        self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
+
+        self.mm = mm
+        self.__connection = DBConnection(self.mm.config)
+
+        # We care about camera activity, register a handler.
+        self.__remove_listener_func = self.mm.bus.listen(EVENT_MOTION_INTERNAL, self.handle_motion_event)
+
+        self.__logger.info("Initialised")
+
+    def close(self):
+        self.__logger.info("Closing SQLWriter {}".format(self))
+        self.__remove_listener_func()
+
+
+    def insert_snapshot_frames(self, frames):
+        self.__logger.debug("Inserting snapshot frame to the DB: %s" % frames)
+        # Insert the data to the DB.  Ignore any duplicates (as determined by the filename)
+        query = """INSERT
+                   IGNORE INTO snapshot_frame (camera_id, timestamp, frame, filename)
+                   VALUES (%s,
+                           %s,
+                           %s,
+                           %s)"""
+
+        self.__run_query(query, frames)
+
+    def insert_motion_frames(self, frames):
+        self.__logger.debug("Inserting motion frame to the DB: %s" % frames)
+        # Insert the data to the DB.  Ignore any duplicates (as determined by the filename)
+        query = """INSERT
+                   IGNORE INTO motion_frame (event_id, camera_id, timestamp, frame, score, filename)
+                   VALUES (%s,
+                           %s,
+                           %s,
+                           %s,
+                           %s,
+                           %s)"""
+        self.__run_query(query, frames)
+
+    def insert_motion_events(self, events):
+        self.__logger.debug("Inserting motion event to the DB: %s" % events)
+        # Insert the data to the DB.  Ignore any duplicates (as determined by the filename)
+        query = """INSERT
+                   IGNORE INTO motion_event (event_id, camera_id, start_time)
+                   VALUES (%s,
+                           %s,
+                           %s)"""
+        self.__run_query(query, events)
 
     def handle_motion_event(self, event):
         msg = event.data

@@ -235,7 +235,7 @@ class SweeperThread(threading.Thread):
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
 
         self.mm = mm
-        self.__sqlwriter = motionmonitor.sqlexchanger.SQLWriter(self.mm)
+        self.__sqlreader = motionmonitor.sqlexchanger.SQLWriter(self.mm)
 
         self.__job = motionmonitor.core.Job("Sweeper")
 
@@ -248,7 +248,7 @@ class SweeperThread(threading.Thread):
 
         try:
             stale_files = []
-            stale_files.extend(self.__sqlwriter.get_stale_snapshot_frames())
+            stale_files.extend(self.__sqlreader.get_stale_snapshot_frames())
 
             self.__logger.info("Have %s snapshot files to delete" % len(stale_files))
 
@@ -264,12 +264,12 @@ class SweeperThread(threading.Thread):
 
                 if len(deletedFiles) > 50:
                     self.__logger.debug("Deleting stale DB entries: %s" % deletedFiles)
-                    self.__sqlwriter.delete_snapshot_frame(deletedFiles)
+                    self.__sqlreader.delete_snapshot_frame(deletedFiles)
                     deletedFiles = []
 
             # Cleanup, in case these were missed in the loop
             self.__logger.debug("Deleting remaining stale DB entries: %s" % deletedFiles)
-            self.__sqlwriter.delete_snapshot_frame(deletedFiles)
+            self.__sqlreader.delete_snapshot_frame(deletedFiles)
 
             self.__logger.debug("Deleting empty paths now")
             for path in deletedPaths:
@@ -282,7 +282,7 @@ class SweeperThread(threading.Thread):
     def __sweep_motion_frames(self):
         try:
             stale_files = []
-            stale_files.extend(self.__sqlwriter.get_stale_motion_frames())
+            stale_files.extend(self.__sqlreader.get_stale_motion_frames())
 
             self.__logger.info("Have %s motion files to delete" % len(stale_files))
 
@@ -298,12 +298,12 @@ class SweeperThread(threading.Thread):
 
                 if len(deletedFiles) > 50:
                     self.__logger.debug("Deleting stale DB entries: %s" % deletedFiles)
-                    self.__sqlwriter.delete_motion_frame(deletedFiles)
+                    self.__sqlreader.delete_motion_frame(deletedFiles)
                     deletedFiles = []
 
             # Cleanup, in case these were missed in the loop
             self.__logger.debug("Deleting remaining stale DB entries: %s" % deletedFiles)
-            self.__sqlwriter.delete_motion_frame(deletedFiles)
+            self.__sqlreader.delete_motion_frame(deletedFiles)
 
             self.__logger.debug("Deleting empty paths now")
             for path in deletedPaths:
@@ -327,7 +327,6 @@ class SweeperThread(threading.Thread):
         self.__logger.info("Snapshot sweeping finished")
         self.__job.update_status(100, "Sweeping finished!")
         self.mm.bus.fire(EVENT_JOB, self.__job)
-        self.__sqlwriter.close()
 
 
 class Sweeper():

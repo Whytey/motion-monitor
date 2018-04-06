@@ -40,9 +40,7 @@ class Frame():
         return Frame(cameraId, timestamp, frameNum, filename)
 
     @staticmethod
-    def get(params):
-
-        sqlwriter = motionmonitor.sqlexchanger.SQLWriter()
+    def get(sqlreader, params):
 
         assert "cameraId" in params, "No cameraId is specified: %s" % params
         assert "startTime" in params, "No startTime is specified: %s" % params
@@ -71,7 +69,7 @@ class Frame():
         elif units.lower() == "month":
             monthCount = count
 
-        dbFrames = sqlwriter.get_timelapse_snapshot_frames(cameraId,
+        dbFrames = sqlreader.get_timelapse_snapshot_frames(cameraId,
                                                            startTime,
                                                            minuteCount,
                                                            hourCount,
@@ -82,8 +80,6 @@ class Frame():
 
         for (cameraId, timestamp, frame, filename) in dbFrames:
             frames.append(Frame(cameraId, timestamp, frame, filename))
-
-        sqlwriter.close()
 
         # Return the frames as a list
         return frames
@@ -169,17 +165,14 @@ class Event():
         return Event(eventId, cameraId, startTime)
 
     @staticmethod
-    def get(params):
-
-        sqlwriter = motionmonitor.sqlexchanger.SQLWriter()
-
+    def get(sqlreader, params):
         assert "eventId" in params, "No eventId is specified: %s" % params
         assert "cameraId" in params, "No cameraId is specified: %s" % params
 
         eventId = params["eventId"]
         cameraId = params["cameraId"]
 
-        dbFrames = sqlwriter.get_motion_event_frames(eventId, cameraId)
+        dbFrames = sqlreader.get_motion_event_frames(eventId, cameraId)
 
         events = []
 
@@ -195,17 +188,11 @@ class Event():
 
             events.append(event)
 
-        sqlwriter.close()
-
         # Return the events as a list
         return events
 
     @staticmethod
-    def list(sqlwriter, params):
-        # Returns the list of motion events from the DB only.
-        sqlwriter = motionmonitor.sqlexchanger.SQLWriter()
-
-
+    def list(sqlreader, params):
         fromTimestamp = None
         if "fromTimestamp" in params:
             fromTimestamp = params["fromTimestamp"]
@@ -216,13 +203,13 @@ class Event():
         if "cameraIds" in params:
             cameraIds = params["cameraIds"]
 
-        dbEvents = sqlwriter.get_motion_events(fromTimestamp, toTimestamp, cameraIds)
+        dbEvents = sqlreader.get_motion_events(fromTimestamp, toTimestamp, cameraIds)
         events = []
 
         for (event_id, camera_id, start_time) in dbEvents:
             events.append(Event(event_id, camera_id, start_time))
 
-        sqlwriter.close()
+        sqlreader.close()
 
         # Return the events as a list
         return events
