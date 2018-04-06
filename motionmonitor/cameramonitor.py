@@ -209,8 +209,6 @@ class Event():
         for (event_id, camera_id, start_time) in dbEvents:
             events.append(Event(event_id, camera_id, start_time))
 
-        sqlreader.close()
-
         # Return the events as a list
         return events
 
