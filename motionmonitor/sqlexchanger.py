@@ -76,7 +76,7 @@ class SQLReader():
                        WHERE camera_id = %s
                        AND timestamp = %s
                        AND frame = %s"""
-        self.__run_query(query, frames)
+        self.__connection.__run_query(query, frames)
 
     def delete_motion_frame(self, frames):
         self.__logger.debug("Deleting motion frames from the DB: %s" % frames)
@@ -88,7 +88,7 @@ class SQLReader():
                        AND camera_id = %s
                        AND timestamp = %s
                        AND frame = %s"""
-        self.__run_query(query, frames)
+        self.__connection.__run_query(query, frames)
 
     def get_timelapse_snapshot_frames(self, cameraId, startTime, minuteCount=0, hourCount=0, dayCount=0, weekCount=0,
                                       monthCount=0):
@@ -161,7 +161,7 @@ class SQLReader():
                                                           dayCount=dayCount,
                                                           weekCount=weekCount,
                                                           monthCount=monthCount)
-        return self.__run_query(query)
+        return self.__connection.__run_query(query)
 
     def get_stale_snapshot_frames(self):
         timeNow = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
@@ -178,7 +178,7 @@ class SQLReader():
                      AND (hour(timestamp) != 12
                      AND minute(timestamp) != 0))""" % (timeNow, timeNow, timeNow, timeNow, timeNow)
 
-        return self.__run_query(query)
+        return self.__connection.__run_query(query)
 
     def get_stale_motion_frames(self):
         self.__logger.debug("Listing stale motion files in the DB")
@@ -198,7 +198,7 @@ class SQLReader():
                    WHERE event_id NOT IN
                        (SELECT event_id
                         FROM motion_event)"""
-        return self.__run_query(query)
+        return self.__connection.__run_query(query)
 
     def get_motion_events(self, fromTimestamp, toTimestamp, cameraIds):
         self.__logger.debug("Listing motion events in the DB")
@@ -218,7 +218,7 @@ class SQLReader():
         if len(wheres) > 0:
             query = query + "\nWHERE " + "\nAND ".join(wheres)
 
-        return self.__run_query(query)
+        return self.__connection.__run_query(query)
 
     def get_motion_event_frames(self, eventId, cameraId):
         self.__logger.debug("Listing motion event frames in the DB")
@@ -233,7 +233,7 @@ class SQLReader():
                    WHERE event_id = '%s'
                      AND camera_id = %s
                    ORDER BY timestamp""" % (eventId, cameraId)
-        return self.__run_query(query)
+        return self.__connection.__run_query(query)
 
     def get_timelapse(self, fromTimestamp, toTimestamp, interval):
         pass
@@ -266,7 +266,7 @@ class SQLWriter():
                            %s,
                            %s)"""
 
-        self.__run_query(query, frames)
+        self.__connection.__run_query(query, frames)
 
     def insert_motion_frames(self, frames):
         self.__logger.debug("Inserting motion frame to the DB: %s" % frames)
@@ -279,7 +279,7 @@ class SQLWriter():
                            %s,
                            %s,
                            %s)"""
-        self.__run_query(query, frames)
+        self.__connection.__run_query(query, frames)
 
     def insert_motion_events(self, events):
         self.__logger.debug("Inserting motion event to the DB: %s" % events)
@@ -289,7 +289,7 @@ class SQLWriter():
                    VALUES (%s,
                            %s,
                            %s)"""
-        self.__run_query(query, events)
+        self.__connection.__run_query(query, events)
 
     def handle_motion_event(self, event):
         msg = event.data
