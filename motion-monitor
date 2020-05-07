@@ -4,7 +4,7 @@ Created on 24/07/2013
 
 @author: djwhyte
 '''
-from gi.repository import GObject
+import asyncio
 import logging
 import logging.handlers
 import os
@@ -12,16 +12,16 @@ import motionmonitor.core
 
 
 def __setup_logger():
-    log_filename = "motion-monitor.log"
+    log_filename = "motion-motionmonitor.log"
 
     logger = logging.getLogger('motionmonitor')
-    logger.setLevel(logging.getLevelName("INFO"))
+    logger.setLevel(logging.getLevelName("DEBUG"))
 
     # Determine the path to the log file.
-    log_path = os.path.join(os.sep, 'var', 'log', 'motion-monitor')
+    log_path = os.path.join(os.sep, 'var', 'log', 'motion-motionmonitor')
     if __is_running_in_dev():
         # We are working in a development environment
-        log_path = os.path.join(os.sep, 'tmp', 'motion-monitor')
+        log_path = os.path.join(os.sep, 'tmp', 'motion-motionmonitor')
 
     if not os.path.exists(log_path):
         os.makedirs(log_path)
@@ -49,10 +49,29 @@ def __is_running_in_dev():
     return os.path.exists(os.path.join(os.getcwd(), 'setup.py'))
 
 
+def setup_socket():
+    loop = asyncio.get_event_loop()
+
+    mm = motionmonitor.core.MotionMonitor()
+
+    sl = motionmonitor.socketlistener.SocketListener(mm)
+    sl.listen()
+
+    jl = motionmonitor.jsoninterface.JSONInterface(mm, mm.camera_monitor)
+    jl.listen()
+
+    try:
+        loop.run_forever()
+    except KeyboardInterrupt:
+        pass
+
+    sl.close()
+    jl.close()
+    loop.close()
+
+
 if __name__ == '__main__':
     __logger = __setup_logger()
     __logger.debug("Logger configured")
-    mm = motionmonitor.core.MotionMonitor()
 
-    loop = GObject.MainLoop()
-    loop.run()
+    setup_socket()

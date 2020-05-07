@@ -42,7 +42,7 @@ class ZabbixWriter():
                 process_args = ['zabbix_sender', '-z', self.__zabbix_server, '-s', self.__ZABBIX_HOST % camera_id, '-k', self.__ZABBIX_KEY, '-o', str(value)]
                 self.__logger.debug("Calling subprocess: %s" % process_args)
                 subprocess.call(process_args)
-            except OSError, e:
+            except OSError as e:
                 self.__logger.exception(e)
         
         except Exception as e:

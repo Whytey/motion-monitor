@@ -66,7 +66,7 @@ def __get_get_data(environ):
         
     # Take the 1-dim dict and inflate it to multi-dim.
     qs = __qs_parse(qs)
-    print qs
+    print (qs)
     return qs
 
 def __error_response(start_response, http_status, error_msg):

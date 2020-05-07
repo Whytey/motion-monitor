@@ -2,6 +2,8 @@ import logging
 import time
 from collections import OrderedDict
 
+import asyncio
+
 import motionmonitor.cameramonitor
 import motionmonitor.config
 import motionmonitor.extensions.zabbixwriter
@@ -19,15 +21,18 @@ class MotionMonitor(object):
     def __init__(self):
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
 
-        self.config = motionmonitor.config
+        self.config = motionmonitor.config.Development
         self.bus = EventBus(self)
+
+        self.loop = asyncio.get_event_loop()
 
         self._jobs = OrderedDict()
 
         self.bus.listen(EVENT_JOB, self.job_handler)
 
-        self.__socket_listener = motionmonitor.socketlistener.SocketListener(self)
-        self.__camera_monitor = motionmonitor.cameramonitor.CameraMonitor(self)
+        # self.__socket_listener = motionmonitor.socketlistener.SocketListener(self)
+
+        self.camera_monitor = motionmonitor.cameramonitor.CameraMonitor(self)
         self.__zabbixwriter = motionmonitor.extensions.zabbixwriter.ZabbixWriter(self)
         self.__sqlwriter = motionmonitor.sqlexchanger.SQLWriter(self)
 
@@ -35,9 +40,12 @@ class MotionMonitor(object):
         self.__sweeper = motionmonitor.filemanager.Sweeper(self)
         self.__auditor = motionmonitor.filemanager.Auditor(self)
 
-        self.__json_interface = motionmonitor.jsoninterface.JSONInterface(self, self.__camera_monitor)
+        # self.__json_interface = motionmonitor.jsoninterface.JSONInterface(self, self.__camera_monitor)
 
         self.__logger.info("Initialised...")
+
+    async def async_run(self):
+        await self.__socket_listener.listen()
 
     def job_handler(self, event):
         self.__logger.debug("Handling a job event: {}".format(event))
@@ -69,6 +77,10 @@ class Job:
     @property
     def progress(self):
         return self.__progress
+
+    @progress.setter
+    def progress(self, value):
+        self.__progress = value
 
     def __repr__(self):
         """Return the representation."""

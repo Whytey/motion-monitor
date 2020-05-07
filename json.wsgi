@@ -67,7 +67,7 @@ def __get_get_data(environ):
         
     # Take the 1-dim dict and inflate it to multi-dim.
     qs = __qs_parse(qs)
-    print qs
+    print (qs)
     return qs
 
 def __request_data(data):
@@ -122,7 +122,7 @@ def application(environ, start_response):
         return __error_response(start_response, HTTP_500, 'Error processing request: %s' % e)
         
     response_json = json.loads(response)
-    print response_json
+    print (response_json)
     
 #    if "error" in response_json:
 #        return __error_response(start_response, HTTP_503, str(response_json["error"])) 

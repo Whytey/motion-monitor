@@ -95,7 +95,7 @@ class AbstractFrameHandler(BaseHandler):
         try:
             imageBytes = response_json["result"][0]["image"]
             decodedBytes = base64.b64decode(imageBytes)
-        except KeyError, e:
+        except KeyError as e:
             raise KeyError(e + response_json)
 
         return decodedBytes
@@ -113,7 +113,7 @@ class SnapshotFrameHandler(AbstractFrameHandler):
             cameraId = self._request["cameraId"]
             timestamp = self._request["timestamp"]
             frame = self._request["frame"]
-        except KeyError, e:
+        except KeyError as e:
             # One of the above required values are not provided in the request
             raise e
         
@@ -133,7 +133,7 @@ class MotionFrameHandler(AbstractFrameHandler):
             cameraId = self._request["cameraId"]
             timestamp = self._request["timestamp"]
             frame = self._request["frame"]
-        except KeyError, e:
+        except KeyError as e:
             # One of the above required values are not provided in the request
             raise e
         
@@ -150,7 +150,7 @@ class LiveFrameHandler(AbstractFrameHandler):
         # Get this requests params
         try:
             cameraId = self._request["cameraId"]
-        except KeyError, e:
+        except KeyError as e:
             # One of the above required values are not provided in the request
             raise e
 
@@ -235,7 +235,7 @@ class MotionVideoHandler(AbstractVideoHandler):
         try:
             self._cameraId = self._request["cameraId"]
             eventId = self._request["eventId"]
-        except Exception, e:    
+        except Exception as e:
             # One of the above required values are not provided in the request
             raise e
 
@@ -272,7 +272,7 @@ class TimelapseVideoHandler(AbstractVideoHandler):
             fromTimestamp = self._request["fromTimestamp"]
             units = self._request["units"]
             count = int(self._request["count"])
-        except Exception, e:    
+        except Exception as e:
             # One of the above required values are not provided in the request
             raise e
 
