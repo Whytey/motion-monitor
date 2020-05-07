@@ -30,9 +30,9 @@ class MotionMonitor(object):
 
         self.bus.listen(EVENT_JOB, self.job_handler)
 
-        # self.__socket_listener = motionmonitor.socketlistener.SocketListener(self)
+        self.__socket_listener = motionmonitor.socketlistener.SocketListener(self)
 
-        self.camera_monitor = motionmonitor.cameramonitor.CameraMonitor(self)
+        self.__camera_monitor = motionmonitor.cameramonitor.CameraMonitor(self)
         self.__zabbixwriter = motionmonitor.extensions.zabbixwriter.ZabbixWriter(self)
         self.__sqlwriter = motionmonitor.sqlexchanger.SQLWriter(self)
 
@@ -40,12 +40,13 @@ class MotionMonitor(object):
         self.__sweeper = motionmonitor.filemanager.Sweeper(self)
         self.__auditor = motionmonitor.filemanager.Auditor(self)
 
-        # self.__json_interface = motionmonitor.jsoninterface.JSONInterface(self, self.__camera_monitor)
+        self.__json_interface = motionmonitor.jsoninterface.JSONInterface(self, self.__camera_monitor)
 
         self.__logger.info("Initialised...")
 
-    async def async_run(self):
-        await self.__socket_listener.listen()
+    def run(self):
+        self.__socket_listener.listen()
+        self.__json_interface.listen()
 
     def job_handler(self, event):
         self.__logger.debug("Handling a job event: {}".format(event))

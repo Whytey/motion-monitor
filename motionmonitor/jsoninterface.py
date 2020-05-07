@@ -146,6 +146,7 @@ class JSONInterface():
         self.__logger = logging.getLogger(__name__)
 
         self.mm = mm
+        self.camera_monitor = camera_monitor
 
         # Initialise server and start listening.
         self.transport = None
@@ -155,7 +156,7 @@ class JSONInterface():
         self.__logger.debug("binding to %s:%d" % (config.JSON_SOCKET_ADDR, config.JSON_SOCKET_PORT))
 
         loop = self.mm.loop
-        protocol = SocketHandler(self.mm)
+        protocol = SocketHandler(self.mm, self.camera_monitor)
 
         # One protocol instance will be created to serve all client requests
         socket_listener = loop.create_datagram_endpoint(
@@ -170,8 +171,9 @@ class JSONInterface():
 
 class SocketHandler(asyncio.DatagramProtocol):
 
-    def __init__(self, mm):
+    def __init__(self, mm, camera_monitor):
         self.mm = mm
+        self.__camera_monitor = camera_monitor
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
 
     def connection_made(self, transport):
@@ -208,7 +210,7 @@ class SocketHandler(asyncio.DatagramProtocol):
 
             if msg["method"] == "camera.get":
                 results_json = []
-                for result in self.mm.camera_monitor.get_cameras().values():
+                for result in self.__camera_monitor.get_cameras().values():
                     results_json.append(result.toJSON())
                 response["result"] = results_json
                 response["count"] = len(results_json)
@@ -254,7 +256,7 @@ class SocketHandler(asyncio.DatagramProtocol):
             response["error"] = error
         finally:
 
-            print('Send %r to %s' % (json.dumps(response), addr))
+            self.__logger.debug('Send %r to %s' % (json.dumps(response), addr))
             self.transport.sendto(data, addr)
 
         return True

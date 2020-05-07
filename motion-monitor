@@ -48,30 +48,18 @@ def __setup_logger():
 def __is_running_in_dev():
     return os.path.exists(os.path.join(os.getcwd(), 'setup.py'))
 
+if __name__ == '__main__':
+    logger = __setup_logger()
+    logger.debug("Logger configured")
 
-def setup_socket():
     loop = asyncio.get_event_loop()
 
     mm = motionmonitor.core.MotionMonitor()
-
-    sl = motionmonitor.socketlistener.SocketListener(mm)
-    sl.listen()
-
-    jl = motionmonitor.jsoninterface.JSONInterface(mm, mm.camera_monitor)
-    jl.listen()
+    mm.run()
 
     try:
         loop.run_forever()
     except KeyboardInterrupt:
         pass
 
-    sl.close()
-    jl.close()
     loop.close()
-
-
-if __name__ == '__main__':
-    __logger = __setup_logger()
-    __logger.debug("Logger configured")
-
-    setup_socket()
