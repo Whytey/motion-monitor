@@ -12,7 +12,7 @@ import motionmonitor.core
 
 
 def __setup_logger():
-    log_filename = "motion-motionmonitor.log"
+    log_filename = "motion-monitor.log"
 
     logger = logging.getLogger('motionmonitor')
     logger.setLevel(logging.getLevelName("DEBUG"))

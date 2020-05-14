@@ -7,6 +7,7 @@ Created on 24/07/2013
 import asyncio
 import json
 import logging
+import socket
 
 from motionmonitor.const import (
     EVENT_MOTION_INTERNAL,
@@ -32,7 +33,7 @@ class SocketListener():
 
         # One protocol instance will be created to serve all client requests
         socket_listener = loop.create_datagram_endpoint(
-            lambda: protocol, local_addr=(config.MOTION_SOCKET_ADDR, config.MOTION_SOCKET_PORT))
+            lambda: protocol, local_addr=(config.MOTION_SOCKET_ADDR, config.MOTION_SOCKET_PORT), reuse_address=True)
         self.transport, p1 = loop.run_until_complete(socket_listener)
         self.__logger.info("Listening...")
 
@@ -46,6 +47,7 @@ class SocketHandler(asyncio.DatagramProtocol):
     def __init__(self, mm):
         self.mm = mm
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
+        self.__logger.debug("Handler configured")
 
     def connection_made(self, transport):
         self.transport = transport

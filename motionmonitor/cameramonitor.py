@@ -313,7 +313,7 @@ class CameraMonitor():
 
             # Get the camera responsible for this event.
             camera_id = msg["camera"]
-            if not self.__cameras.has_key(camera_id):
+            if camera_id not in self.__cameras:
                 # This is the first time we have encountered this camera
                 self.__logger.info("Creating an object for camera %s" % camera_id)
                 camera = Camera(camera_id)
