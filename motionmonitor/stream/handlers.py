@@ -232,6 +232,10 @@ class LiveVideoHandler(AbstractVideoHandler):
         self.__logger = logging.getLogger("%s.LiveVideoHandler" % __name__)
         AbstractVideoHandler.__init__(self, request)
 
+    async def createBytes(self):
+        self._bytes = await self._generateFrameBytes()
+        return self._bytes
+
     def _generateFrameBytes(self):
         return LiveFrameHandler(self._request)._generateBytes()
 

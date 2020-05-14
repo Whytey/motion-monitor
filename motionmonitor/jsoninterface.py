@@ -215,8 +215,8 @@ class JSONInterface():
             #     handler = TimelapseVideoHandler(msg)
             elif request_type.lower() == "liveframe":
                 handler = LiveFrameHandler(msg)
-            # elif request_type.lower() == "livevideo":
-            #     handler = LiveVideoHandler(msg)
+            elif request_type.lower() == "livevideo":
+                handler = LiveVideoHandler(msg)
             else:
                 raise KeyError("Unknown method requested: %s" % request_type)
 
