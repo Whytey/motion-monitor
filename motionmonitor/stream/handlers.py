@@ -12,9 +12,11 @@ from abc import ABCMeta, abstractmethod
 
 import aiohttp
 
+from motionmonitor import config
+
 
 async def _request_data(data):
-    url = 'http://127.0.0.1:8080/json'
+    url = 'http://{}:{}/json'.format(config.Config.WEB_SERVER_ADDR, config.Config.WEB_SERVER_PORT)
     async with aiohttp.ClientSession() as session:
         async with session.post(url, json=data) as resp:
             data = await resp.text()
