@@ -25,7 +25,7 @@ class ZabbixWriter():
         # We care about camera activity, register a handler.
         self.mm.bus.listen(EVENT_CAMERA_ACTIVITY, self.handle_camera_activity)
 
-        self.__zabbix_server = config.ZABBIX_SERVER_ADDR
+        self.__zabbix_server = config["ZABBIX"]["SERVER_ADDRESS"]
         self.__logger.info("Initialised")
 
         

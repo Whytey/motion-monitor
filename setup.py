@@ -12,7 +12,8 @@ data = dict(
     author_email = 'david@thewhytehouse.org',
     packages =      ['motionmonitor', 'motionmonitor.stream', 'motionmonitor.extensions'],
     scripts = ['motion-monitor'],
-    data_files = [('/etc/init', ['motion-monitor.conf']),],
+    data_files = [('/etc/init', ['motion-monitor.conf']),
+                  ('/etc/motion-monitor', ['motion-monitor.ini', 'motion-monitor.ini.default']),],
     )
 
 

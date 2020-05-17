@@ -15,10 +15,10 @@ class DBConnection():
     def __init__(self, config):
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
 
-        self.__DB_SERVER_ADDR = config.DB_SERVER_ADDR
-        self.__DB_NAME = config.DB_NAME
-        self.__DB_USER = config.DB_USER
-        self.__DB_PASSWORD = config.DB_PASSWORD
+        self.__DB_SERVER_ADDR = config["DATABASE"]["ADDRESS"]
+        self.__DB_NAME = config["DATABASE"]["NAME"]
+        self.__DB_USER = config["DATABASE"]["USERNAME"]
+        self.__DB_PASSWORD = config["DATABASE"]["PASSWORD"]
 
         self.__connection = None
 

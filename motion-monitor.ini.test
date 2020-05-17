@@ -1,0 +1,12 @@
+# This is the override for test envrionments
+[GENERAL]
+TARGET_DIR=/tmp/
+
+[SOCKET_SERVER]
+PORT=9999
+
+[DATABASE]
+ADDRESS=192.168.0.83
+NAME=motion-test
+USERNAME=motion
+PASSWORD=motion

@@ -18,29 +18,26 @@ from motionmonitor.const import (
 
 class MotionMonitor(object):
 
-    def __init__(self):
+    def __init__(self, config, loop):
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
 
-        self.config = motionmonitor.config.Development
+        self.config = config
+        self.loop = loop
+
         self.bus = EventBus(self)
-
-        self.loop = asyncio.get_event_loop()
-
         self._jobs = OrderedDict()
 
         self.bus.listen(EVENT_JOB, self.job_handler)
 
         self.__socket_listener = motionmonitor.socketlistener.SocketListener(self)
-
         self.__camera_monitor = motionmonitor.cameramonitor.CameraMonitor(self)
         self.__zabbixwriter = motionmonitor.extensions.zabbixwriter.ZabbixWriter(self)
         self.__sqlwriter = motionmonitor.sqlexchanger.SQLWriter(self)
+        self.__json_interface = motionmonitor.jsoninterface.JSONInterface(self, self.__camera_monitor)
 
         # This is the sweeper and auditor.
         self.__sweeper = motionmonitor.filemanager.Sweeper(self)
         self.__auditor = motionmonitor.filemanager.Auditor(self)
-
-        self.__json_interface = motionmonitor.jsoninterface.JSONInterface(self, self.__camera_monitor)
 
         self.__logger.info("Initialised...")
 

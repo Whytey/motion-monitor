@@ -48,7 +48,7 @@ class Image():
 
     def _get_image_data(self):
         # Need to ensure we only serve up motion files.
-        assert self._path.startswith(self.mm.config.TARGET_DIR), "Not a motion file: %s" % self._path
+        assert self._path.startswith(self.mm.config["GENERAL"]["TARGET_DIR"]), "Not a motion file: %s" % self._path
 
         # TODO: Need to only serve up jpeg files.
 
@@ -118,7 +118,7 @@ class MotionImage(Image):
         self.__logger = logging.getLogger("%s.MotionImage" % __name__)
         Image.__init__(self, mm, cameraid, timestamp, thumbnail, include_image)
         self._event = event
-        self._path = mm.config.TARGET_DIR + Image._CONFIG_motion_filename
+        self._path = mm.config["GENERAL"]["TARGET_DIR"] + Image._CONFIG_motion_filename
         self._path = self._path.replace("%v", str(self._event))
         self._path = self._path.replace("%q", "00")
         self._path = Image._decode_image_path(self._path, self._cameraid, self._timestamp)
@@ -134,7 +134,7 @@ class SnapshotImage(Image):
         self.__logger = logging.getLogger("%s.SnapshotImage" % __name__)
         Image.__init__(self, mm, cameraid, timestamp, thumbnail, include_image)
 
-        self._path = mm.config.TARGET_DIR + Image._CONFIG_snapshot_filename
+        self._path = mm.config["GENERAL"]["TARGET_DIR"] + Image._CONFIG_snapshot_filename
         self._path = Image._decode_image_path(self._path, self._cameraid, self._timestamp)
         self.__logger.debug("The path: " + self._path)
 
@@ -148,7 +148,7 @@ class JSONInterface():
 
         self.mm = mm
         self.camera_monitor = camera_monitor
-        self.__port = mm.config.WEB_SERVER_PORT
+        self.__port = mm.config["WEB_SERVER"]["PORT"]
 
         self.server = None
 

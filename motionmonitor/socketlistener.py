@@ -26,14 +26,16 @@ class SocketListener():
 
     def listen(self):
         config = self.mm.config
-        self.__logger.debug("binding to %s:%d" % (config.MOTION_SOCKET_ADDR, config.MOTION_SOCKET_PORT))
+        address = config["SOCKET_SERVER"]["ADDRESS"]
+        port = int(config["SOCKET_SERVER"]["PORT"])
+        self.__logger.debug("binding to %s:%d" % (address, port))
 
         loop = self.mm.loop
         protocol = SocketHandler(self.mm)
 
         # One protocol instance will be created to serve all client requests
         socket_listener = loop.create_datagram_endpoint(
-            lambda: protocol, local_addr=(config.MOTION_SOCKET_ADDR, config.MOTION_SOCKET_PORT), reuse_address=True)
+            lambda: protocol, local_addr=(address, port), reuse_address=True)
         self.transport, p1 = loop.run_until_complete(socket_listener)
         self.__logger.info("Listening...")
 

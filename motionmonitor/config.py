@@ -1,35 +1,53 @@
-class Config:
-    ZABBIX_SERVER_ADDR = "192.168.0.83"
-    MOTION_SOCKET_ADDR = "127.0.0.1"
-    MOTION_SOCKET_PORT = 8888
-    WEB_SERVER_ADDR = "127.0.0.1"
-    WEB_SERVER_PORT = 8080
-    DB_SERVER_ADDR = "192.168.0.83"
-    DB_NAME = "motion"
-    DB_USER = "motion"
-    DB_PASSWORD = "motion"
-    LOGGING_FILENAME = "motion-monitor.log"
-    LOGGING_LEVEL = "INFO"
-    TARGET_DIR = "/data/motion/"
-    MOTION_FILENAME = 'motion/camera%t/%Y%m%d/%C/%Y%m%d-%H%M%S-%q'
-    SNAPSHOT_FILENAME = 'snapshots/camera%t/%Y/%m/%d/%H/%M/%S-snapshot'
+import logging
+import os
+import configparser
 
 
-class Production(Config):
-    ENV = 'prod'
-    DEBUG = False
-    API_URL = '/api'
+class ConfigReader():
+    __config_filename = 'motion-monitor.ini'
 
+    def __init__(self):
+        self.__logger = logging.getLogger(__name__)
+        self.__logger.info("Initialised...")
 
-class Development(Config):
-    ENV = 'dev'
-    DEBUG = True
-    TARGET_DIR = "/tmp/"
-    API_URL = 'http://127.0.0.1:5000/api'
-    DB_NAME = "motion-dev"
+    def readConfig(self, filename=None, ignore_defaults=False):
+        config = configparser.ConfigParser()
 
+        if not ignore_defaults:
+            # Attempt to read the defaults, from the possible locations.
+            defaultLocations = [os.curdir, "/etc/motion-monitor"]
+            for location in defaultLocations:
+                try:
+                    filepath = os.path.join(location, self.__config_filename + ".default")
+                    self.__logger.debug("Attempting to read default config from %s" % filepath)
+                    with open(filepath) as source:
+                        config.readfp(source)
+                        self.__logger.info("Read default config from %s" % filepath)
+                        break
+                except IOError:
+                    self.__logger.error("Error reading default config from %s" % location)
 
-class Testing(Config):
-    TESTING = True
-    DEBUG = True
-    MOTION_SOCKET_PORT = 9999
+        if filename:
+            try:
+                filepath = filename
+                if os.path.exists(filepath):
+                    config.read(filepath)
+                    self.__logger.info("Overwrote defaults with config from %s" % filepath)
+            except IOError:
+                self.__logger.error("Error overwriting config from %s" % filename)
+        else:
+            # Attempt to overwrite the defaults with user specifics
+            overrideLocations = [os.curdir, os.path.expanduser("~/.motion-monitor"), "/etc/motion-monitor"]
+            for location in overrideLocations:
+                try:
+                    filepath = os.path.join(location, self.__config_filename)
+                    if os.path.exists(filepath):
+                        config.read(filepath)
+                        self.__logger.info("Overwrote defaults with config from %s" % filepath)
+                        break
+                except IOError:
+                    self.__logger.error("Error overwriting config from %s" % location)
+
+        self.__logger.debug(config)
+
+        return config
