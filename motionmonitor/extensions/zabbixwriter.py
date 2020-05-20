@@ -25,7 +25,7 @@ class ZabbixWriter():
         # We care about camera activity, register a handler.
         self.mm.bus.listen(EVENT_CAMERA_ACTIVITY, self.handle_camera_activity)
 
-        self.__zabbix_server = config.ZABBIX_SERVER_ADDR
+        self.__zabbix_server = config["ZABBIX"]["SERVER_ADDRESS"]
         self.__logger.info("Initialised")
 
         
@@ -42,7 +42,7 @@ class ZabbixWriter():
                 process_args = ['zabbix_sender', '-z', self.__zabbix_server, '-s', self.__ZABBIX_HOST % camera_id, '-k', self.__ZABBIX_KEY, '-o', str(value)]
                 self.__logger.debug("Calling subprocess: %s" % process_args)
                 subprocess.call(process_args)
-            except OSError, e:
+            except OSError as e:
                 self.__logger.exception(e)
         
         except Exception as e:

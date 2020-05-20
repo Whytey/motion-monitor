@@ -1,0 +1,9 @@
+# This is the override for development envrionments
+[GENERAL]
+TARGET_DIR=/tmp/
+
+[DATABASE]
+ADDRESS=192.168.0.83
+NAME=motion-dev
+USERNAME=motion
+PASSWORD=motion

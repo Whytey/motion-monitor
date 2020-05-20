@@ -4,18 +4,20 @@ Created on 24/07/2013
 
 @author: djwhyte
 '''
-from gi.repository import GObject
+import argparse
+import asyncio
 import logging
 import logging.handlers
 import os
 import motionmonitor.core
+import motionmonitor.config
 
 
 def __setup_logger():
     log_filename = "motion-monitor.log"
 
     logger = logging.getLogger('motionmonitor')
-    logger.setLevel(logging.getLevelName("INFO"))
+    logger.setLevel(logging.getLevelName("DEBUG"))
 
     # Determine the path to the log file.
     log_path = os.path.join(os.sep, 'var', 'log', 'motion-monitor')
@@ -45,14 +47,33 @@ def __setup_logger():
     return logger
 
 
+def __parse_args():
+    parser = argparse.ArgumentParser(description='Run the motion-monitor server.')
+    parser.add_argument('-c', "--config", type=str, dest='config_file',
+                        help='The config file to read at startup.')
+
+    args = parser.parse_args()
+    return args
+
+
 def __is_running_in_dev():
     return os.path.exists(os.path.join(os.getcwd(), 'setup.py'))
 
-
 if __name__ == '__main__':
-    __logger = __setup_logger()
-    __logger.debug("Logger configured")
-    mm = motionmonitor.core.MotionMonitor()
+    args = __parse_args()
 
-    loop = GObject.MainLoop()
-    loop.run()
+    logger = __setup_logger()
+    logger.debug("Logger configured")
+
+    config_file = None
+    config = motionmonitor.config.ConfigReader().read_config(args.config_file)
+    loop = asyncio.get_event_loop()
+    mm = motionmonitor.core.MotionMonitor(config, loop)
+    loop.run_until_complete(mm.run())
+
+    try:
+        loop.run_forever()
+    except KeyboardInterrupt:
+        pass
+
+    loop.close()

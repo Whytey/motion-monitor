@@ -2,6 +2,8 @@ import logging
 import time
 from collections import OrderedDict
 
+import asyncio
+
 import motionmonitor.cameramonitor
 import motionmonitor.config
 import motionmonitor.extensions.zabbixwriter
@@ -16,12 +18,13 @@ from motionmonitor.const import (
 
 class MotionMonitor(object):
 
-    def __init__(self):
+    def __init__(self, config, loop):
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
 
-        self.config = motionmonitor.config
-        self.bus = EventBus(self)
+        self.config = config
+        self.loop = loop
 
+        self.bus = EventBus(self)
         self._jobs = OrderedDict()
 
         self.bus.listen(EVENT_JOB, self.job_handler)
@@ -30,14 +33,17 @@ class MotionMonitor(object):
         self.__camera_monitor = motionmonitor.cameramonitor.CameraMonitor(self)
         self.__zabbixwriter = motionmonitor.extensions.zabbixwriter.ZabbixWriter(self)
         self.__sqlwriter = motionmonitor.sqlexchanger.SQLWriter(self)
+        self.__json_interface = motionmonitor.jsoninterface.JSONInterface(self, self.__camera_monitor)
 
         # This is the sweeper and auditor.
         self.__sweeper = motionmonitor.filemanager.Sweeper(self)
         self.__auditor = motionmonitor.filemanager.Auditor(self)
 
-        self.__json_interface = motionmonitor.jsoninterface.JSONInterface(self, self.__camera_monitor)
-
         self.__logger.info("Initialised...")
+
+    async def run(self):
+        await self.__socket_listener.listen()
+        await self.__json_interface.listen()
 
     def job_handler(self, event):
         self.__logger.debug("Handling a job event: {}".format(event))
@@ -69,6 +75,10 @@ class Job:
     @property
     def progress(self):
         return self.__progress
+
+    @progress.setter
+    def progress(self, value):
+        self.__progress = value
 
     def __repr__(self):
         """Return the representation."""
