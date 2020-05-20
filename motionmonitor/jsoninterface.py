@@ -152,14 +152,19 @@ class JSONInterface():
 
         self.server = None
 
-    def listen(self):
+    async def listen(self):
         app = web.Application()
         app.router.add_get('/json', self.json_get_data_received)
         app.router.add_post('/json', self.json_post_data_received)
         app.router.add_get('/media', self.media_get_data_received)
         app.router.add_post('/media', self.media_post_data_received)
         app.router.add_static("/", path=str('./html/'))
-        web.run_app(app, port=self.__port, print=None, access_log=self.__logger)
+
+        runner = web.AppRunner(app)
+        await runner.setup()
+        site = web.TCPSite(runner, 'localhost', self.__port)
+        await site.start()
+        # web.run_app(app, port=self.__port, print=None, access_log=self.__logger)
 
         self.__logger.info("Listening on port {}...".format(self.__port))
 

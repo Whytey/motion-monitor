@@ -5,7 +5,6 @@ import socket
 import unittest
 from unittest.mock import Mock
 
-from motionmonitor import config
 from motionmonitor import socketlistener
 
 
@@ -23,12 +22,17 @@ class TestSocketListener(unittest.TestCase):
         self.loop = asyncio.new_event_loop()
 
         mm = Mock()
-        mm.config.MOTION_SOCKET_PORT = config.Testing.MOTION_SOCKET_PORT
-        mm.config.MOTION_SOCKET_ADDR = config.Testing.MOTION_SOCKET_ADDR
+        self.config = {"SOCKET_SERVER": {"ADDRESS": "127.0.0.1", "PORT": "9999"}}
+
+        mm.config = self.config
         mm.loop = self.loop
 
         self.sl = socketlistener.SocketListener(mm)
-        self.sl.listen()
+
+        async def start_socket():
+            await self.sl.listen()
+
+        self.loop.run_until_complete(start_socket())
 
     def tearDown(self) -> None:
         self.sl.close()
@@ -42,14 +46,14 @@ class TestSocketListener(unittest.TestCase):
         sock = socket.socket(socket.AF_INET,  # Internet
                              socket.SOCK_DGRAM)  # UDP
         sock.sendto(json.dumps(msg_dict).encode(),
-                    (self.sl.mm.config.MOTION_SOCKET_ADDR, self.sl.mm.config.MOTION_SOCKET_PORT))
+                    (self.config["SOCKET_SERVER"]["ADDRESS"], int(self.config["SOCKET_SERVER"]["PORT"])))
         sock.close()
 
     def test_simple(self):
         async def code_for_event_loop():
             self.sl.mm.bus.fire.side_effect = self.capture_event
-
             self.send_socket_msg({"type": "picture_save"})
+
         self.loop.run_until_complete(code_for_event_loop())
 
         self.assertEqual(self.msg["type"], "picture_save")

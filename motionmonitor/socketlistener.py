@@ -24,7 +24,7 @@ class SocketListener():
 
         self.transport = None
 
-    def listen(self):
+    async def listen(self):
         config = self.mm.config
         address = config["SOCKET_SERVER"]["ADDRESS"]
         port = int(config["SOCKET_SERVER"]["PORT"])
@@ -36,7 +36,8 @@ class SocketListener():
         # One protocol instance will be created to serve all client requests
         socket_listener = loop.create_datagram_endpoint(
             lambda: protocol, local_addr=(address, port), reuse_address=True)
-        self.transport, p1 = loop.run_until_complete(socket_listener)
+        self.transport, p1 = await socket_listener
+        # self.transport, p1 = loop.run_until_complete(socket_listener)
         self.__logger.info("Listening...")
 
     def close(self):

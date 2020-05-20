@@ -4,6 +4,7 @@ Created on 24/07/2013
 
 @author: djwhyte
 '''
+import argparse
 import asyncio
 import logging
 import logging.handlers
@@ -46,20 +47,29 @@ def __setup_logger():
     return logger
 
 
+def __parse_args():
+    parser = argparse.ArgumentParser(description='Run the motion-monitor server.')
+    parser.add_argument('-c', "--config", type=str, dest='config_file',
+                        help='The config file to read at startup.')
+
+    args = parser.parse_args()
+    return args
+
+
 def __is_running_in_dev():
     return os.path.exists(os.path.join(os.getcwd(), 'setup.py'))
 
 if __name__ == '__main__':
+    args = __parse_args()
+
     logger = __setup_logger()
     logger.debug("Logger configured")
 
     config_file = None
-    if __is_running_in_dev():
-        config_file = "motion-monitor.ini.dev"
-    config = motionmonitor.config.ConfigReader().readConfig(config_file)
+    config = motionmonitor.config.ConfigReader().read_config(args.config_file)
     loop = asyncio.get_event_loop()
     mm = motionmonitor.core.MotionMonitor(config, loop)
-    mm.run()
+    loop.run_until_complete(mm.run())
 
     try:
         loop.run_forever()

@@ -41,9 +41,9 @@ class MotionMonitor(object):
 
         self.__logger.info("Initialised...")
 
-    def run(self):
-        self.__socket_listener.listen()
-        self.__json_interface.listen()
+    async def run(self):
+        await self.__socket_listener.listen()
+        await self.__json_interface.listen()
 
     def job_handler(self, event):
         self.__logger.debug("Handling a job event: {}".format(event))
