@@ -1,12 +1,11 @@
+from importlib import util
 import logging
+import os
 import time
 from collections import OrderedDict
 
-import asyncio
-
 import motionmonitor.cameramonitor
 import motionmonitor.config
-import motionmonitor.extensions.zabbixwriter
 import motionmonitor.filemanager
 import motionmonitor.jsoninterface
 import motionmonitor.socketlistener
@@ -24,6 +23,8 @@ class MotionMonitor(object):
         self.config = config
         self.loop = loop
 
+        self.extensions = self.__load_extensions()
+
         self.bus = EventBus(self)
         self._jobs = OrderedDict()
 
@@ -31,7 +32,6 @@ class MotionMonitor(object):
 
         self.__socket_listener = motionmonitor.socketlistener.SocketListener(self)
         self.__camera_monitor = motionmonitor.cameramonitor.CameraMonitor(self)
-        self.__zabbixwriter = motionmonitor.extensions.zabbixwriter.ZabbixWriter(self)
         self.__sqlwriter = motionmonitor.sqlexchanger.SQLWriter(self)
         self.__json_interface = motionmonitor.jsoninterface.JSONInterface(self, self.__camera_monitor)
 
@@ -44,6 +44,11 @@ class MotionMonitor(object):
     async def run(self):
         await self.__socket_listener.listen()
         await self.__json_interface.listen()
+        for extension in self.extensions:
+            self.__logger.debug("About to start: {}".format(extension))
+            await extension["instance"].start_extension()
+            self.__logger.debug("Started: {}".format(extension))
+
 
     def job_handler(self, event):
         self.__logger.debug("Handling a job event: {}".format(event))
@@ -52,6 +57,37 @@ class MotionMonitor(object):
         while (len(self._jobs) > MAX_JOBQ_SIZE):
             self.__logger.debug("Too many jobs in the queue, popping the oldest")
             self._jobs.popitem(False)
+
+    def __load_extensions(self):
+        main_module = "__init__"
+        extension_folder = self.config["GENERAL"]["EXTENSIONS_DIR"]
+
+        expected_extensions = self.config.sections()
+        expected_extensions.remove("GENERAL")
+        self.__logger.debug("Have config for the following extensions: {}".format(expected_extensions))
+
+        extensions=[]
+        for extension in [item.lower() for item in expected_extensions]:
+            # Try and load the extension
+            location = os.path.join(extension_folder, extension)
+            self.__logger.debug("Extension location should be: {}".format(location))
+
+            if not os.path.isdir(location) or not main_module + ".py" in os.listdir(location):
+                self.__logger.warning("Could find extension '{}' in the extension direction '{}'".format(location, extension_folder))
+                continue
+
+            module_path = os.path.join(location, main_module + ".py")
+            if not os.path.exists(module_path):
+                self.__logger.warning("No {} module found for extention '{}'".format(main_module, location))
+                continue
+
+            spec = util.spec_from_file_location(main_module, module_path)
+            module = util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            extension_instance = module.get_extension(self)
+            extensions.append({"name": extension, "info": module, "instance": extension_instance})
+
+        return extensions
 
 
 class Job:
@@ -160,6 +196,7 @@ class EventBus(object):
         To listen to all events specify the constant ``MATCH_ALL``
         as event_type.
         """
+        self.__logger.debug("Adding {} as a listener to events of type '{}'".format(listener, event_type))
         if event_type in self._listeners:
             self._listeners[event_type].append(listener)
         else:

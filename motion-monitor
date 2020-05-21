@@ -16,7 +16,7 @@ import motionmonitor.config
 def __setup_logger():
     log_filename = "motion-monitor.log"
 
-    logger = logging.getLogger('motionmonitor')
+    logger = logging.getLogger()
     logger.setLevel(logging.getLevelName("DEBUG"))
 
     # Determine the path to the log file.
@@ -59,6 +59,7 @@ def __parse_args():
 def __is_running_in_dev():
     return os.path.exists(os.path.join(os.getcwd(), 'setup.py'))
 
+
 if __name__ == '__main__':
     args = __parse_args()
 
@@ -67,8 +68,10 @@ if __name__ == '__main__':
 
     config_file = None
     config = motionmonitor.config.ConfigReader().read_config(args.config_file)
+
     loop = asyncio.get_event_loop()
     mm = motionmonitor.core.MotionMonitor(config, loop)
+
     loop.run_until_complete(mm.run())
 
     try:
