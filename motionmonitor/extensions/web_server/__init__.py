@@ -16,8 +16,11 @@ from aiohttp import web
 import motionmonitor.sqlexchanger
 from motionmonitor.cameramonitor import Event, Frame
 
+def get_extension(mm):
+    return JSONInterface(mm)
 
-class Image():
+
+class Image:
     """This is an Image object, as represented in JSON"""
 
     # _CONFIG_target_dir = '/data/motion/'
@@ -142,17 +145,16 @@ class SnapshotImage(Image):
         return "snapshot"
 
 
-class JSONInterface():
-    def __init__(self, mm, camera_monitor):
+class JSONInterface:
+    def __init__(self, mm):
         self.__logger = logging.getLogger(__name__)
 
         self.mm = mm
-        self.camera_monitor = camera_monitor
         self.__port = mm.config["WEB_SERVER"]["PORT"]
 
         self.server = None
 
-    async def listen(self):
+    async def start_extension(self):
         app = web.Application()
         app.router.add_get('/json', self.json_get_data_received)
         app.router.add_post('/json', self.json_post_data_received)
@@ -262,7 +264,7 @@ class JSONInterface():
 
             if msg["method"] == "camera.get":
                 results_json = []
-                for result in self.camera_monitor.get_cameras().values():
+                for result in self.mm.cameras.values():
                     results_json.append(result.toJSON())
                 response["result"] = results_json
                 response["count"] = len(results_json)

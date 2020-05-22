@@ -4,6 +4,7 @@ LOGGING_LEVEL=INFO
 TARGET_DIR=/data/motion/
 MOTION_FILENAME=motion/camera%t/%Y%m%d/%C/%Y%m%d-%H%M%S-%q
 SNAPSHOT_FILENAME=snapshots/camera%t/%Y/%m/%d/%H/%M/%S-snapshot
+EXTENSIONS_DIR=./motionmonitor/extensions
 
 [ZABBIX]
 SERVER_ADDRESS=192.168.0.83
