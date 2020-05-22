@@ -8,7 +8,6 @@ import motionmonitor.cameramonitor
 import motionmonitor.config
 import motionmonitor.filemanager
 import motionmonitor.jsoninterface
-import motionmonitor.socketlistener
 import motionmonitor.sqlexchanger
 from motionmonitor.const import (
     MATCH_ALL, EVENT_JOB, MAX_JOBQ_SIZE
@@ -30,7 +29,6 @@ class MotionMonitor(object):
 
         self.bus.listen(EVENT_JOB, self.job_handler)
 
-        self.__socket_listener = motionmonitor.socketlistener.SocketListener(self)
         self.__camera_monitor = motionmonitor.cameramonitor.CameraMonitor(self)
         self.__sqlwriter = motionmonitor.sqlexchanger.SQLWriter(self)
         self.__json_interface = motionmonitor.jsoninterface.JSONInterface(self, self.__camera_monitor)
@@ -42,13 +40,11 @@ class MotionMonitor(object):
         self.__logger.info("Initialised...")
 
     async def run(self):
-        await self.__socket_listener.listen()
         await self.__json_interface.listen()
         for extension in self.extensions:
             self.__logger.debug("About to start: {}".format(extension))
             await extension["instance"].start_extension()
             self.__logger.debug("Started: {}".format(extension))
-
 
     def job_handler(self, event):
         self.__logger.debug("Handling a job event: {}".format(event))

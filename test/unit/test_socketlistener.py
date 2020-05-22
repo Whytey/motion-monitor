@@ -5,7 +5,7 @@ import socket
 import unittest
 from unittest.mock import Mock
 
-from motionmonitor import socketlistener
+from motionmonitor.extensions import socket_server
 
 
 class TestSocketListener(unittest.TestCase):
@@ -27,10 +27,10 @@ class TestSocketListener(unittest.TestCase):
         mm.config = self.config
         mm.loop = self.loop
 
-        self.sl = socketlistener.SocketListener(mm)
+        self.sl = socket_server.SocketListener(mm)
 
         async def start_socket():
-            await self.sl.listen()
+            await self.sl.start_extension()
 
         self.loop.run_until_complete(start_socket())
 

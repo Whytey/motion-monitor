@@ -5,7 +5,7 @@ Created on 08/08/2013
 '''
 import logging
 import subprocess
-# import asyncio
+import asyncio
 
 from motionmonitor.const import EVENT_CAMERA_ACTIVITY
 
@@ -14,7 +14,7 @@ def get_extension(mm):
     return ZabbixWriter(mm)
 
 
-class ZabbixWriter():
+class ZabbixWriter:
     __ZABBIX_KEY = "state"
     __ZABBIX_HOST = "camera%s"
 
