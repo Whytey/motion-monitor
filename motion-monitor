@@ -66,9 +66,7 @@ if __name__ == '__main__':
     logger = __setup_logger()
     logger.debug("Logger configured")
 
-    config_file = None
     config = motionmonitor.config.ConfigReader().read_config(args.config_file)
-
     loop = asyncio.get_event_loop()
     mm = motionmonitor.core.MotionMonitor(config, loop)
 
