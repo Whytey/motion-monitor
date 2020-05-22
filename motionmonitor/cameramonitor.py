@@ -298,13 +298,10 @@ class CameraMonitor():
         self.mm = mm
         self.mm.bus.listen(EVENT_MOTION_INTERNAL, self.handle_motion_event)
 
-        self.__cameras = {}
-        self.__jobs = []
-
         self.__logger.info("Initialised")
 
     def get_cameras(self):
-        return self.__cameras
+        return self.mm.cameras
 
     def handle_motion_event(self, event):
         try:
@@ -313,13 +310,13 @@ class CameraMonitor():
 
             # Get the camera responsible for this event.
             camera_id = msg["camera"]
-            if camera_id not in self.__cameras:
+            if camera_id not in self.mm.cameras:
                 # This is the first time we have encountered this camera
                 self.__logger.info("Creating an object for camera %s" % camera_id)
                 camera = Camera(camera_id)
-                self.__cameras[camera_id] = camera
+                self.mm.cameras[camera_id] = camera
 
-            camera = self.__cameras[camera_id]
+            camera = self.mm.cameras[camera_id]
 
             if msg["type"] in ["event_end", "event_start"]:
                 camera.handle_activity(msg)

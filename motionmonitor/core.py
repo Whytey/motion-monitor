@@ -7,7 +7,6 @@ from collections import OrderedDict
 import motionmonitor.cameramonitor
 import motionmonitor.config
 import motionmonitor.filemanager
-import motionmonitor.jsoninterface
 import motionmonitor.sqlexchanger
 from motionmonitor.const import (
     MATCH_ALL, EVENT_JOB, MAX_JOBQ_SIZE
@@ -28,10 +27,10 @@ class MotionMonitor(object):
         self._jobs = OrderedDict()
 
         self.bus.listen(EVENT_JOB, self.job_handler)
+        self.cameras = {}
 
         self.__camera_monitor = motionmonitor.cameramonitor.CameraMonitor(self)
         self.__sqlwriter = motionmonitor.sqlexchanger.SQLWriter(self)
-        self.__json_interface = motionmonitor.jsoninterface.JSONInterface(self, self.__camera_monitor)
 
         # This is the sweeper and auditor.
         self.__sweeper = motionmonitor.filemanager.Sweeper(self)
@@ -40,7 +39,6 @@ class MotionMonitor(object):
         self.__logger.info("Initialised...")
 
     async def run(self):
-        await self.__json_interface.listen()
         for extension in self.extensions:
             self.__logger.debug("About to start: {}".format(extension))
             await extension["instance"].start_extension()
