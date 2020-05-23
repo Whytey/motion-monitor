@@ -17,6 +17,10 @@ from motionmonitor.const import (
 )
 
 
+def get_extension(mm):
+    return [Auditor(mm), Sweeper(mm)]
+
+
 def delete_path(path):
     if os.path.exists(path):
         if os.path.isdir(path):
@@ -209,11 +213,12 @@ class Auditor():
     def __init__(self, mm):
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
         self.mm = mm
-
-        self.mm.bus.listen(EVENT_MANAGEMENT_ACTIVITY, self.audit)
-
         self.__logger.info("Initialised")
         self.__thread = None
+
+    async def start_extension(self):
+        self.mm.bus.listen(EVENT_MANAGEMENT_ACTIVITY, self.audit)
+        self.__logger.info("Started")
 
     def audit(self, event):
         msg = event.data
@@ -333,13 +338,13 @@ class Sweeper():
 
     def __init__(self, mm):
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
-
         self.mm = mm
-
-        self.mm.bus.listen(EVENT_MANAGEMENT_ACTIVITY, self.sweep)
-
         self.__logger.info("Initialised")
         self.__thread = None
+
+    async def start_extension(self):
+        self.mm.bus.listen(EVENT_MANAGEMENT_ACTIVITY, self.sweep)
+        self.__logger.info("Started")
 
     def sweep(self, event):
         msg = event.data
