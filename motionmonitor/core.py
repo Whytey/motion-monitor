@@ -6,7 +6,6 @@ from collections import OrderedDict
 
 import motionmonitor.cameramonitor
 import motionmonitor.config
-import motionmonitor.filemanager
 import motionmonitor.sqlexchanger
 from motionmonitor.const import (
     MATCH_ALL, EVENT_JOB, MAX_JOBQ_SIZE
@@ -32,16 +31,12 @@ class MotionMonitor(object):
         self.__camera_monitor = motionmonitor.cameramonitor.CameraMonitor(self)
         self.__sqlwriter = motionmonitor.sqlexchanger.SQLWriter(self)
 
-        # This is the sweeper and auditor.
-        self.__sweeper = motionmonitor.filemanager.Sweeper(self)
-        self.__auditor = motionmonitor.filemanager.Auditor(self)
-
         self.__logger.info("Initialised...")
 
     async def run(self):
         for extension in self.extensions:
             self.__logger.debug("About to start: {}".format(extension))
-            await extension["instance"].start_extension()
+            await extension.start_extension()
             self.__logger.debug("Started: {}".format(extension))
 
     def job_handler(self, event):
@@ -56,18 +51,17 @@ class MotionMonitor(object):
         main_module = "__init__"
         extension_folder = self.config["GENERAL"]["EXTENSIONS_DIR"]
 
-        expected_extensions = self.config.sections()
-        expected_extensions.remove("GENERAL")
-        self.__logger.debug("Have config for the following extensions: {}".format(expected_extensions))
-
         extensions=[]
-        for extension in [item.lower() for item in expected_extensions]:
+        possible_extensions = os.listdir(extension_folder)
+        self.__logger.debug("Have the following extension folders: {}".format(possible_extensions))
+
+        for extension in [item.lower() for item in possible_extensions]:
             # Try and load the extension
             location = os.path.join(extension_folder, extension)
             self.__logger.debug("Extension location should be: {}".format(location))
 
             if not os.path.isdir(location) or not main_module + ".py" in os.listdir(location):
-                self.__logger.warning("Could find extension '{}' in the extension direction '{}'".format(location, extension_folder))
+                self.__logger.warning("Extension '{}' isn't a directory or the directory doesn't contain an '{}'.py.".format(location, main_module))
                 continue
 
             module_path = os.path.join(location, main_module + ".py")
@@ -79,7 +73,7 @@ class MotionMonitor(object):
             module = util.module_from_spec(spec)
             spec.loader.exec_module(module)
             extension_instance = module.get_extension(self)
-            extensions.append({"name": extension, "info": module, "instance": extension_instance})
+            extensions.extend(extension_instance if type(extension_instance) == list else [extension_instance])
 
         return extensions
 
