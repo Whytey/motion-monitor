@@ -1,11 +1,13 @@
+import json
 import logging
 import os
 import socket
 from datetime import datetime
 from pathlib import Path
+
 from PIL import Image, ImageDraw
+
 from motionmonitor import config
-import json
 
 MOTION_TYPE = "1"
 SNAPSHOT_TYPE = "2"
@@ -23,14 +25,14 @@ logger.debug("Logger configured")
 
 
 def _determine_filename(filepath, camera_id, timestamp=datetime.now(), event_id="0", frame="0"):
-    return config["GENERAL"]["TARGET_DIR"] + filepath\
-        .replace("%t", str(camera_id))\
-        .replace("%Y", timestamp.strftime("%Y"))\
-        .replace("%m", timestamp.strftime("%m"))\
-        .replace("%d", timestamp.strftime("%d"))\
-        .replace("%H",timestamp.strftime("%H"))\
-        .replace("%M", timestamp.strftime("%M"))\
-        .replace("%S", timestamp.strftime("%S"))\
+    return config["GENERAL"]["TARGET_DIR"] + filepath \
+        .replace("%t", str(camera_id)) \
+        .replace("%Y", timestamp.strftime("%Y")) \
+        .replace("%m", timestamp.strftime("%m")) \
+        .replace("%d", timestamp.strftime("%d")) \
+        .replace("%H", timestamp.strftime("%H")) \
+        .replace("%M", timestamp.strftime("%M")) \
+        .replace("%S", timestamp.strftime("%S")) \
         .replace("%C", event_id) \
         .replace("%q", frame.zfill(2)) + ".jpg"
 
@@ -70,6 +72,7 @@ def create_snapshot_frame(camera_id="1"):
     _create_image_file(filename)
     _send_socket_msg(camera_id, SNAPSHOT_TYPE, timestamp, filename)
 
+
 def create_motion_frame(camera_id="1"):
     timestamp = datetime.now()
     event_id = timestamp.strftime("%Y%m%d-%H%M%S")
@@ -77,8 +80,8 @@ def create_motion_frame(camera_id="1"):
     _create_image_file(filename)
     _send_socket_msg(camera_id, MOTION_TYPE, timestamp, filename, event_id)
 
-if __name__ == '__main__':
 
+if __name__ == '__main__':
     config = config.ConfigReader().read_config("motion-monitor.ini.test", False)
 
     create_snapshot_frame("1")

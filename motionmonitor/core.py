@@ -1,8 +1,8 @@
-from importlib import util
 import logging
 import os
 import time
 from collections import OrderedDict
+from importlib import util
 
 import motionmonitor.cameramonitor
 import motionmonitor.config

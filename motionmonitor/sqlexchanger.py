@@ -265,7 +265,7 @@ class SQLWriter():
                            %s,
                            %s,
                            %s)"""
-
+        return
         self.__connection.run_query(query, frames)
 
     def insert_motion_frames(self, frames):
@@ -279,6 +279,8 @@ class SQLWriter():
                            %s,
                            %s,
                            %s)"""
+        return
+
         self.__connection.run_query(query, frames)
 
     def insert_motion_events(self, events):
@@ -289,6 +291,8 @@ class SQLWriter():
                    VALUES (%s,
                            %s,
                            %s)"""
+        return
+
         self.__connection.run_query(query, events)
 
     def handle_motion_event(self, event):

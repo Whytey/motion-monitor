@@ -14,7 +14,8 @@ from PIL import Image as PILImage
 from aiohttp import web
 
 import motionmonitor.sqlexchanger
-from motionmonitor.cameramonitor import Event, Frame
+from models import Frame, Event
+
 
 def get_extension(mm):
     return JSONInterface(mm)
@@ -166,7 +167,6 @@ class JSONInterface:
         await runner.setup()
         site = web.TCPSite(runner, 'localhost', self.__port)
         await site.start()
-        # web.run_app(app, port=self.__port, print=None, access_log=self.__logger)
 
         self.__logger.info("Listening on port {}...".format(self.__port))
 
