@@ -154,7 +154,7 @@ class Camera:
         return self.__recent_motion
 
     def append_snapshot_frame(self, frame):
-        self.__recent_snapshots.appendleft(frame)
+        self.__recent_snapshots.append(frame)
 
     def to_json(self):
         self.__logger.debug("Getting JSON for camera: {}".format(self))

@@ -9,7 +9,7 @@ import json
 import logging
 from datetime import datetime
 
-from models import EventFrame, Event, Frame
+from motionmonitor.models import EventFrame, Event, Frame
 from motionmonitor.const import (
     EVENT_MOTION_INTERNAL,
     EVENT_MANAGEMENT_ACTIVITY,
@@ -49,6 +49,7 @@ class SocketListener:
 
     def close(self):
         if self.transport:
+            self.__logger.info("Closing the transport.")
             self.transport.close()
 
 
