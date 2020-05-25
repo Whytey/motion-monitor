@@ -129,19 +129,16 @@ class SocketHandler(asyncio.DatagramProtocol):
     def handle_motion_message(self, event):
         msg = event.data
         if msg["type"] in ["picture_save"]:
-            try:
-                file_type = int(msg["filetype"])
-                if file_type == self.FTYPE_IMAGE_SNAPSHOT:
-                    self.__logger.debug("Handling a snapshot")
-                    frame = SocketHandler.decode_frame_msg(msg)
-                    self.mm.bus.fire(EVENT_NEW_FRAME, frame)
+            file_type = int(msg["filetype"])
+            if file_type == self.FTYPE_IMAGE_SNAPSHOT:
+                self.__logger.debug("Handling a snapshot")
+                frame = SocketHandler.decode_frame_msg(msg)
+                self.mm.bus.fire(EVENT_NEW_FRAME, frame)
 
-                if file_type == self.FTYPE_IMAGE:
-                    self.__logger.debug("Handling motion image")
-                    event_frame = SocketHandler.decode_event_frame_msg(msg)
-                    self.mm.bus.fire(EVENT_NEW_MOTION_FRAME, event_frame)
-            except ValueError:
-                self.__logger.warning("Received an unexpected filetype: %s" % msg["filetype"])
+            if file_type == self.FTYPE_IMAGE:
+                self.__logger.debug("Handling motion image")
+                event_frame = SocketHandler.decode_event_frame_msg(msg)
+                self.mm.bus.fire(EVENT_NEW_MOTION_FRAME, event_frame)
 
         if msg["type"] == "event_start":
             # We need an Event

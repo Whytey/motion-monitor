@@ -20,7 +20,6 @@ class CameraMonitor():
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
 
         self.mm = mm
-        # self.mm.bus.listen(EVENT_MOTION_INTERNAL, self.handle_motion_event)
         self.mm.bus.listen(EVENT_MOTION_EVENT_START, self.handle_motion_start)
         self.mm.bus.listen(EVENT_MOTION_EVENT_END, self.handle_motion_end)
         self.mm.bus.listen(EVENT_NEW_FRAME, self.handle_snapshot_frame)
@@ -61,5 +60,5 @@ class CameraMonitor():
         self.mm.cameras[motion_frame.camera_id].recent_motion[0].append_frame(motion_frame)
 
     def __create_camera(self, camera_id):
-        self.__logger.debug("Creating a new camera: {}".format(camera_id))
+        self.__logger.info("Creating a new camera: {}".format(camera_id))
         self.mm.cameras[camera_id] = Camera(camera_id)

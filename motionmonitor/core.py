@@ -6,7 +6,7 @@ from importlib import util
 
 import motionmonitor.cameramonitor
 import motionmonitor.config
-import motionmonitor.sqlexchanger
+import extensions.mysql_db_server.__init__
 from motionmonitor.const import (
     MATCH_ALL, EVENT_JOB, MAX_JOBQ_SIZE
 )
@@ -19,9 +19,6 @@ class MotionMonitor(object):
 
         self.config = config
         self.loop = loop
-
-        self.extensions = self.__load_extensions()
-
         self.bus = EventBus(self)
         self._jobs = OrderedDict()
 
@@ -29,7 +26,9 @@ class MotionMonitor(object):
         self.cameras = {}
 
         self.__camera_monitor = motionmonitor.cameramonitor.CameraMonitor(self)
-        self.__sqlwriter = motionmonitor.sqlexchanger.SQLWriter(self)
+        # self.__sqlwriter = extensions.mysql_db_server.__init__.SQLWriter(self)
+
+        self.extensions = self.__load_extensions()
 
         self.__logger.info("Initialised...")
 

@@ -8,12 +8,12 @@ import datetime
 import json
 import logging
 from io import BytesIO
-from motionmonitor.stream.handlers import SnapshotFrameHandler, MotionFrameHandler, MotionVideoHandler, TimelapseVideoHandler, LiveFrameHandler, LiveVideoHandler
+from extensions.web_server.stream.handlers import SnapshotFrameHandler, MotionFrameHandler, LiveFrameHandler, LiveVideoHandler
 
 from PIL import Image as PILImage
 from aiohttp import web
 
-import motionmonitor.sqlexchanger
+import extensions.mysql_db_server.__init__
 from models import Frame, Event
 
 
@@ -265,7 +265,7 @@ class JSONInterface:
             if msg["method"] == "camera.get":
                 results_json = []
                 for result in self.mm.cameras.values():
-                    results_json.append(result.toJSON())
+                    results_json.append(result.to_json())
                 response["result"] = results_json
                 response["count"] = len(results_json)
 
@@ -278,26 +278,26 @@ class JSONInterface:
                 response["count"] = len(results_json)
 
             if msg["method"] == "event.get":
-                results = Event.get(motionmonitor.sqlexchanger.SQLReader(self.mm), msg["params"])
+                results = JSONInterface.event_get(extensions.mysql_db_server.__init__.SQLReader(self.mm), msg["params"])
                 results_json = []
                 for result in results:
-                    results_json.append(result.toJSON(True))
+                    results_json.append(result.to_json(True))
                 response["result"] = results_json
                 response["count"] = len(results_json)
 
             if msg["method"] == "event.list":
-                results = Event.list(motionmonitor.sqlexchanger.SQLReader(self.mm), msg["params"])
+                results = JSONInterface.event_list(extensions.mysql_db_server.__init__.SQLReader(self.mm), msg["params"])
                 results_json = []
                 for result in results:
-                    results_json.append(result.toJSON())
+                    results_json.append(result.to_json())
                 response["result"] = results_json
                 response["count"] = len(results_json)
 
             if msg["method"] == "snapshot.get":
-                results = Frame.get(motionmonitor.sqlexchanger.SQLReader(self.mm), msg["params"])
+                results = JSONInterface.snapshot_get(extensions.mysql_db_server.__init__.SQLReader(self.mm), msg["params"])
                 results_json = []
                 for result in results:
-                    results_json.append(result.toJSON())
+                    results_json.append(result.to_json())
                 response["result"] = results_json
                 response["count"] = len(results_json)
 
@@ -311,3 +311,98 @@ class JSONInterface:
 
         self.__logger.debug(response)
         return web.Response(text=json.dumps(response), content_type='application/json')
+
+    @staticmethod
+    def snapshot_get(sqlreader, params):
+
+        assert "cameraId" in params, "No cameraId is specified: %s" % params
+        assert "startTime" in params, "No startTime is specified: %s" % params
+        assert "units" in params, "No units is specified: %s" % params
+        assert "count" in params, "No count is specified: %s" % params
+
+        cameraId = params["cameraId"]
+        startTime = params["startTime"]
+        units = params["units"]
+        count = params["count"]
+
+        minuteCount = 0
+        hourCount = 0
+        dayCount = 0
+        weekCount = 0
+        monthCount = 0
+
+        if units.lower() == "minute":
+            minuteCount = count
+        elif units.lower() == "hour":
+            hourCount = count
+        elif units.lower() == "day":
+            dayCount = count
+        elif units.lower() == "week":
+            weekCount = count
+        elif units.lower() == "month":
+            monthCount = count
+
+        dbFrames = sqlreader.get_timelapse_snapshot_frames(cameraId,
+                                                           startTime,
+                                                           minuteCount,
+                                                           hourCount,
+                                                           dayCount,
+                                                           weekCount,
+                                                           monthCount)
+        frames = []
+
+        for (cameraId, timestamp, frame, filename) in dbFrames:
+            frames.append(Frame(cameraId, timestamp, frame, filename))
+
+        # Return the frames as a list
+        return frames
+
+
+    @staticmethod
+    def event_get(sqlreader, params):
+        assert "eventId" in params, "No eventId is specified: %s" % params
+        assert "cameraId" in params, "No cameraId is specified: %s" % params
+
+        eventId = params["eventId"]
+        cameraId = params["cameraId"]
+
+        dbFrames = sqlreader.get_motion_event_frames(eventId, cameraId)
+
+        events = []
+
+        if len(dbFrames) > 0:
+            eventId = dbFrames[0][0]
+            cameraId = dbFrames[0][1]
+            startTime = dbFrames[0][2]
+            event = Event(eventId, cameraId, startTime)
+
+            for (eventId, cameraId, timestamp, frameNum, score, filename) in dbFrames:
+                eventFrame = EventFrame(cameraId, eventId, timestamp, frameNum, filename, score)
+                event.append_frame(eventFrame)
+
+            events.append(event)
+
+        # Return the events as a list
+        return events
+
+    @staticmethod
+    def event_list(sqlreader, params):
+        fromTimestamp = None
+        if "fromTimestamp" in params:
+            fromTimestamp = params["fromTimestamp"]
+        toTimestamp = None
+        if "toTimestamp" in params:
+            toTimestamp = params["toTimestamp"]
+        cameraIds = None
+        if "cameraIds" in params:
+            cameraIds = params["cameraIds"]
+
+        dbEvents = sqlreader.get_motion_events(fromTimestamp, toTimestamp, cameraIds)
+        events = []
+
+        for (event_id, camera_id, start_time) in dbEvents:
+            events.append(Event(event_id, camera_id, start_time))
+
+        # Return the events as a list
+        return events
+
