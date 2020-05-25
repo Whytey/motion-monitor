@@ -14,7 +14,7 @@ from PIL import Image as PILImage
 from aiohttp import web
 
 import extensions.mysql_db_server.__init__
-from models import Frame, Event
+from models import Frame, Event, EventFrame
 
 
 def get_extension(mm):
