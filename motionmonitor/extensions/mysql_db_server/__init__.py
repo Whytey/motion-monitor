@@ -11,7 +11,11 @@ import MySQLdb
 from motionmonitor.const import EVENT_MOTION_INTERNAL
 
 
-class DBConnection():
+def get_extension(mm):
+    return [SQLReader(mm), SQLWriter(mm)]
+
+
+class DBConnection:
     def __init__(self, config):
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
 
@@ -58,14 +62,16 @@ class DBConnection():
             raise
 
 
-class SQLReader():
+class SQLReader:
     def __init__(self, mm):
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
 
         self.mm = mm
-        self.__connection = DBConnection(self.mm.config)
 
         self.__logger.info("Initialised")
+
+    async def start_extension(self):
+        self.__connection = DBConnection(self.mm.config)
 
     def delete_snapshot_frame(self, frames):
         self.__logger.debug("Deleting snapshot frames from the DB: %s" % frames)
@@ -238,23 +244,27 @@ class SQLReader():
     def get_timelapse(self, fromTimestamp, toTimestamp, interval):
         pass
 
-class SQLWriter():
+
+class SQLWriter:
 
     def __init__(self, mm):
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
 
         self.mm = mm
+
+
+        self.__logger.info("Initialised")
+
+    async def start_extension(self):
         self.__connection = DBConnection(self.mm.config)
 
         # We care about camera activity, register a handler.
         self.__remove_listener_func = self.mm.bus.listen(EVENT_MOTION_INTERNAL, self.handle_motion_event)
 
-        self.__logger.info("Initialised")
 
     def close(self):
         self.__logger.info("Closing SQLWriter {}".format(self))
         self.__remove_listener_func()
-
 
     def insert_snapshot_frames(self, frames):
         self.__logger.debug("Inserting snapshot frame to the DB: %s" % frames)
@@ -265,7 +275,7 @@ class SQLWriter():
                            %s,
                            %s,
                            %s)"""
-
+        return
         self.__connection.run_query(query, frames)
 
     def insert_motion_frames(self, frames):
@@ -279,6 +289,8 @@ class SQLWriter():
                            %s,
                            %s,
                            %s)"""
+        return
+
         self.__connection.run_query(query, frames)
 
     def insert_motion_events(self, events):
@@ -289,6 +301,8 @@ class SQLWriter():
                    VALUES (%s,
                            %s,
                            %s)"""
+        return
+
         self.__connection.run_query(query, events)
 
     def handle_motion_event(self, event):

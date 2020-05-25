@@ -10,7 +10,7 @@ import os
 import threading
 
 import motionmonitor.core
-import motionmonitor.sqlexchanger
+import extensions.mysql_db_server.__init__
 from motionmonitor.const import (
     EVENT_JOB,
     EVENT_MANAGEMENT_ACTIVITY
@@ -198,7 +198,7 @@ class AuditorThread(threading.Thread):
             raise
 
     def run(self):
-        self.__sqlwriter = motionmonitor.sqlexchanger.SQLWriter(self.mm)
+        self.__sqlwriter = extensions.mysql_db_server.__init__.SQLWriter(self.mm)
         self.__logger.info("Auditing the motion frames")
         self.__audit_motion_frames()
         self.__logger.info("Motion auditing finished")
@@ -240,7 +240,7 @@ class SweeperThread(threading.Thread):
         self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
 
         self.mm = mm
-        self.__sqlreader = motionmonitor.sqlexchanger.SQLReader(self.mm)
+        self.__sqlreader = extensions.mysql_db_server.__init__.SQLReader(self.mm)
 
         self.__job = motionmonitor.core.Job("Sweeper")
 
