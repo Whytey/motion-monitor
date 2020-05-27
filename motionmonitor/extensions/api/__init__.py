@@ -32,6 +32,8 @@ class API:
         self.register_view(APIRootView)
         self.register_view(APICamerasView)
         self.register_view(APICameraEntityView)
+        self.register_view(APICameraSnapshotsView)
+        self.register_view(APICameraSnapshotEntityView)
 
         runner = web.AppRunner(app)
         await runner.setup()
@@ -52,13 +54,15 @@ class API:
             # Instantiate the view, if needed
             view = view()
 
+        class_name = view.__class__.__name__
         if not hasattr(view, "url"):
-            class_name = view.__class__.__name__
             raise AttributeError(f'{class_name} missing required attribute "url"')
 
         if not hasattr(view, "name"):
-            class_name = view.__class__.__name__
             raise AttributeError(f'{class_name} missing required attribute "name"')
+
+        if not hasattr(view, "description"):
+            raise AttributeError(f'{class_name} missing required attribute "description"')
 
         view.register(self.app, self.app.router)
         _LOGGER.debug("View '{}' has been registered.".format(view.name))
@@ -67,14 +71,14 @@ class API:
 class BaseAPIView:
     """Base view for all views."""
 
-    url = None
-    name = None
+    # url = None
+    # name = None
+    # description = None
     extra_urls = []
 
     def register(self, app, router):
         """Register the view with a router."""
         _LOGGER.debug("Attempting to register our view")
-        assert self.url is not None, "No url set for view"
 
         for method in ("get", "post", "delete", "put", "patch", "head", "options"):
             handler = getattr(self, method, None)
@@ -89,11 +93,12 @@ class BaseAPIView:
 class APIRootView(BaseAPIView):
     url = "/"
     name = "api:root"
+    description = "Describes the available API endpoints"
 
     async def get(self, request):
         response = {"application": "Motion Monitor", "version": 0.1, "routes": []}
         for route in request.app.router.routes():
-            route_desc = {"name": route.name, "method": route.method}
+            route_desc = {"name": route.name, "method": route.method, "url": "<relative-url>", "description": "<str>"}
             # route_desc = {"name": route.name, "method": route.method, "url": str(route.url_for())}
             response["routes"].append(route_desc)
         return web.Response(text=json.dumps(response), content_type='application/json')
@@ -102,6 +107,7 @@ class APIRootView(BaseAPIView):
 class APICamerasView(BaseAPIView):
     url = "/cameras"
     name = "api:cameras"
+    description = "Lists the known cameras"
 
     async def get(self, request):
         mm = request.app[KEY_MM]
@@ -110,13 +116,13 @@ class APICamerasView(BaseAPIView):
             camera_desc = {"cameraId": camera_id,
                            "url": str(request.app.router[APICameraEntityView.name].url_for(camera_id=camera_id))}
             response["cameras"].append(camera_desc)
-        response["count"] = len(response["cameras"])
         return web.Response(text=json.dumps(response), content_type='application/json')
 
 
 class APICameraEntityView(BaseAPIView):
     url = "/cameras/{camera_id}"
     name = "api:camera-entity"
+    description = "Provides a detailed view of a specific camera"
 
     async def get(self, request):
         camera_id = request.match_info['camera_id']
@@ -127,3 +133,55 @@ class APICameraEntityView(BaseAPIView):
             return web.Response(text=json.dumps(response), content_type='application/json')
         except KeyError as e:
             raise HTTPBadRequest()
+
+
+class APICameraSnapshotsView(BaseAPIView):
+    url = "/cameras/{camera_id}/snapshots"
+    name = "api:camera-snapshots"
+    description = "Lists the snapshots related to this camera"
+
+    async def get(self, request):
+        camera_id = request.match_info['camera_id']
+
+        mm = request.app[KEY_MM]
+        try:
+            camera = mm.cameras[camera_id]
+        except KeyError as e:
+            _LOGGER.error("Invalid cameraId: {}".format(camera_id))
+            raise HTTPBadRequest()
+
+        response = {"snapshots": []}
+        for snapshot in camera.recent_snapshots.values():
+            timestamp = snapshot.timestamp
+            frame_num = snapshot.frame_num
+            snapshot_desc = {"timestamp": timestamp, "frame": frame_num,
+                             "url": str(
+                                 request.app.router[APICameraSnapshotEntityView.name].url_for(camera_id=camera_id,
+                                                                                              timestamp=timestamp,
+                                                                                              frame=frame_num))}
+            response["snapshots"].append(snapshot_desc)
+        return web.Response(text=json.dumps(response), content_type='application/json')
+
+
+class APICameraSnapshotEntityView(BaseAPIView):
+    url = "/cameras/{camera_id}/snapshots/{timestamp}/{frame}"
+    name = "api:camera-snapshot-entity"
+    description = "Lists the snapshots related to this camera"
+
+    async def get(self, request):
+        camera_id = request.match_info['camera_id']
+        timestamp = request.match_info['timestamp']
+        frame = request.match_info['frame']
+
+        if "scale" in request.query:
+            pass
+
+        response = {}
+        return web.Response(text=json.dumps(response), content_type='application/json')
+
+    async def post(self, request):
+        camera_id = request.match_info['camera_id']
+        timestamp = request.match_info['timestamp']
+        frame = request.match_info['frame']
+        response = {}
+        return web.Response(text=json.dumps(response), content_type='application/json')

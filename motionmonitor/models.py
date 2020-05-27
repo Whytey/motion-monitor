@@ -1,6 +1,8 @@
 import logging
 from collections import deque
 
+from motionmonitor.utils import FixedSizeOrderedDict
+
 
 class Frame:
     def __init__(self, camera_id, timestamp, frame_num, filename):
@@ -132,7 +134,7 @@ class Camera:
 
         self.__camera_id = camera_id
         self.__state = self.STATE_IDLE
-        self.__recent_snapshots = deque([], 1000)
+        self.__recent_snapshots = FixedSizeOrderedDict(max=1000)
         self.__recent_motion = deque([], 10)
 
     @property
@@ -144,9 +146,14 @@ class Camera:
         return self.__state
 
     @property
+    def recent_snapshots(self):
+        return self.__recent_snapshots
+
+    @property
     def last_snapshot(self):
         if len(self.__recent_snapshots) > 0:
-            return self.__recent_snapshots[-1]
+            self.__logger.debug("We have recent snapshots, getting the latest one")
+            return list(self.__recent_snapshots.values())[-1]
         return None
 
     @property
@@ -154,7 +161,7 @@ class Camera:
         return self.__recent_motion
 
     def append_snapshot_frame(self, frame):
-        self.__recent_snapshots.append(frame)
+        self.__recent_snapshots["{}_{}".format(frame.timestamp, frame.frame_num)] = frame
 
     def to_json(self):
         self.__logger.debug("Getting JSON for camera: {}".format(self))

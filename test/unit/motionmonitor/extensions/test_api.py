@@ -1,9 +1,15 @@
 import asyncio
+import json
 import logging
 import unittest
+from datetime import datetime
 from unittest.mock import Mock
 
-from motionmonitor.extensions.api import API
+from motionmonitor.const import KEY_MM
+from motionmonitor.extensions.api import API, APICameraSnapshotsView
+from motionmonitor.models import Camera, Frame
+
+CAMERA_ID = "1"
 
 
 class TestAPIServer(unittest.TestCase):
@@ -41,6 +47,44 @@ class TestAPICameraEntityView(unittest.TestCase):
     def test_simple(self):
         pass
 
+
+class TestAPICameraSnapshotsView(unittest.TestCase):
+    def setUp(self) -> None:
+        self.endpoint = APICameraSnapshotsView()
+        self.loop = asyncio.new_event_loop()
+
+        self.camera = Camera(CAMERA_ID)
+        mm = Mock()
+        mm.cameras = {CAMERA_ID: self.camera}
+        self.request = Mock()
+        self.request.match_info = {"camera_id": CAMERA_ID}
+        self.request.app = {KEY_MM: mm}
+
+    async def _code_for_event_loop(self):
+        return await self.endpoint.get(self.request)
+
+    def test_simple(self):
+        response = self.loop.run_until_complete(self._code_for_event_loop())
+
+        self.assertEqual(200, response.status)
+        self.assertEqual("application/json", response.content_type)
+        json_data = json.loads(response.body)
+        self.assertEqual(0, len(json_data["snapshots"]))
+
+    def test_single_snapshot(self):
+        f = Frame(self.camera, str(datetime.now()), 1, "filename2")
+
+        self.camera.append_snapshot_frame(f)
+        response = self.loop.run_until_complete(self._code_for_event_loop())
+
+        self.assertEqual(200, response.status)
+        self.assertEqual("application/json", response.content_type)
+        json_data = json.loads(response.body)
+        self.assertEqual(1, len(json_data["snapshots"]))
+
+
+class TestAPICameraSnapshotEntityView(unittest.TestCase):
+    pass
 
 if __name__ == '__main__':
     unittest.main()
