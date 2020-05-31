@@ -104,14 +104,14 @@ class SocketHandler(asyncio.DatagramProtocol):
         # self.__logger.debug("Creating Event from socket message: %s" % msg)
         event_id = msg["event"]
         camera_id = msg["camera"]
-        start_time = msg["timestamp"]
+        start_time = datetime.strptime(msg["timestamp"], "%Y%m%d%H%M%S")
         return Event(event_id, camera_id, start_time)
 
     @staticmethod
     def decode_frame_msg(msg):
         # self.__logger.debug("Creating Frame from socket message: %s" % msg)
         camera_id = msg["camera"]
-        timestamp = msg["timestamp"]
+        timestamp = datetime.strptime(msg["timestamp"], "%Y%m%d%H%M%S")
         frame_num = msg["frame"]
         filename = msg["file"]
         return Frame(camera_id, timestamp, frame_num, filename)
@@ -121,7 +121,7 @@ class SocketHandler(asyncio.DatagramProtocol):
         # self.__logger.debug("Creating EventFrame from socket message: %s" % msg)
         camera_id = msg["camera"]
         event_id = msg["event"]
-        timestamp = msg["timestamp"]
+        timestamp = datetime.strptime(msg["timestamp"], "%Y%m%d%H%M%S")
         frame_num = msg["frame"]
         filename = msg["file"]
         score = msg["score"]

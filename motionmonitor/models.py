@@ -17,6 +17,10 @@ class Frame:
         return self._camera_id
 
     @property
+    def id(self):
+        return self.create_id(self._timestamp, self._frame_num)
+
+    @property
     def timestamp(self):
         return self._timestamp
 
@@ -27,6 +31,10 @@ class Frame:
     @property
     def filename(self):
         return self._filename
+
+    @staticmethod
+    def create_id(timestamp, frame_num):
+        return "{}_{}".format(timestamp.strftime("%Y%m%d%H%M%S"), frame_num)
 
     def to_json(self):
         self.__logger.debug("Getting JSON")
@@ -161,7 +169,7 @@ class Camera:
         return self.__recent_motion
 
     def append_snapshot_frame(self, frame):
-        self.__recent_snapshots["{}_{}".format(frame.timestamp, frame.frame_num)] = frame
+        self.__recent_snapshots[Frame.create_id(frame.timestamp, frame.frame_num)] = frame
 
     def to_json(self):
         self.__logger.debug("Getting JSON for camera: {}".format(self))

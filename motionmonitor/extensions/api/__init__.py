@@ -1,10 +1,12 @@
 import json
 import logging
+from datetime import datetime
 
 from aiohttp import web
 from aiohttp.web_exceptions import HTTPBadRequest
 
 from motionmonitor.const import KEY_MM
+from motionmonitor.models import Frame
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -99,7 +101,6 @@ class APIRootView(BaseAPIView):
         response = {"application": "Motion Monitor", "version": 0.1, "routes": []}
         for route in request.app.router.routes():
             route_desc = {"name": route.name, "method": route.method, "url": "<relative-url>", "description": "<str>"}
-            # route_desc = {"name": route.name, "method": route.method, "url": str(route.url_for())}
             response["routes"].append(route_desc)
         return web.Response(text=json.dumps(response), content_type='application/json')
 
@@ -132,6 +133,7 @@ class APICameraEntityView(BaseAPIView):
             response = mm.cameras[camera_id].to_json()
             return web.Response(text=json.dumps(response), content_type='application/json')
         except KeyError as e:
+            _LOGGER.error("Invalid cameraId: {}".format(camera_id))
             raise HTTPBadRequest()
 
 
@@ -152,7 +154,7 @@ class APICameraSnapshotsView(BaseAPIView):
 
         response = {"snapshots": []}
         for snapshot in camera.recent_snapshots.values():
-            timestamp = snapshot.timestamp
+            timestamp = snapshot.timestamp.strftime("%Y%m%d%H%M%S")
             frame_num = snapshot.frame_num
             snapshot_desc = {"timestamp": timestamp, "frame": frame_num,
                              "url": str(
@@ -170,13 +172,23 @@ class APICameraSnapshotEntityView(BaseAPIView):
 
     async def get(self, request):
         camera_id = request.match_info['camera_id']
-        timestamp = request.match_info['timestamp']
+        timestamp = datetime.strptime(request.match_info['timestamp'], "%Y%m%d%H%M%S")
         frame = request.match_info['frame']
 
         if "scale" in request.query:
-            pass
+            _LOGGER.debug("Need to scale: {}".format(request.query["scale"]))
+        if "format" in request.query:
+            _LOGGER.debug("Need to format: {}".format(request.query["format"]))
 
-        response = {}
+        mm = request.app[KEY_MM]
+        try:
+            camera = mm.cameras[camera_id]
+            snapshot = camera.recent_snapshots[Frame.create_id(timestamp, frame)]
+        except KeyError as e:
+            _LOGGER.error("Invalid cameraId: {}".format(camera_id))
+            raise HTTPBadRequest()
+
+        response = snapshot.to_json()
         return web.Response(text=json.dumps(response), content_type='application/json')
 
     async def delete(self, request):
