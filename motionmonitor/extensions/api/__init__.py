@@ -179,9 +179,9 @@ class APICameraSnapshotEntityView(BaseAPIView):
         response = {}
         return web.Response(text=json.dumps(response), content_type='application/json')
 
-    async def post(self, request):
+    async def delete(self, request):
         camera_id = request.match_info['camera_id']
         timestamp = request.match_info['timestamp']
         frame = request.match_info['frame']
-        response = {}
+        response = {"Message": "Not yet implemented"}
         return web.Response(text=json.dumps(response), content_type='application/json')

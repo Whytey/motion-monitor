@@ -4,7 +4,7 @@ import logging
 import unittest
 from datetime import datetime
 from unittest.mock import Mock
-
+from aiohttp.test_utils import make_mocked_request
 from motionmonitor.const import KEY_MM
 from motionmonitor.extensions.api import API, APICameraSnapshotsView
 from motionmonitor.models import Camera, Frame
@@ -55,16 +55,20 @@ class TestAPICameraSnapshotsView(unittest.TestCase):
 
         self.camera = Camera(CAMERA_ID)
         mm = Mock()
+        self.config = {"API": {"ADDRESS": "127.0.0.1", "PORT": "9999"}}
+        mm.config = self.config
+        mm.loop = self.loop
+        mm.cameras = {CAMERA_ID: Camera(CAMERA_ID)}
         mm.cameras = {CAMERA_ID: self.camera}
-        self.request = Mock()
-        self.request.match_info = {"camera_id": CAMERA_ID}
-        self.request.app = {KEY_MM: mm}
 
-    async def _code_for_event_loop(self):
-        return await self.endpoint.get(self.request)
+        self.request = make_mocked_request("GET", APICameraSnapshotsView.url, match_info={"camera_id": CAMERA_ID})
+        self.request.app[KEY_MM] = mm
+
+    async def _code_for_event_loop(self, request):
+        return await self.endpoint.get(request)
 
     def test_simple(self):
-        response = self.loop.run_until_complete(self._code_for_event_loop())
+        response = self.loop.run_until_complete(self._code_for_event_loop(self.request))
 
         self.assertEqual(200, response.status)
         self.assertEqual("application/json", response.content_type)
@@ -73,9 +77,9 @@ class TestAPICameraSnapshotsView(unittest.TestCase):
 
     def test_single_snapshot(self):
         f = Frame(self.camera, str(datetime.now()), 1, "filename2")
-
         self.camera.append_snapshot_frame(f)
-        response = self.loop.run_until_complete(self._code_for_event_loop())
+
+        response = self.loop.run_until_complete(self._code_for_event_loop(self.request))
 
         self.assertEqual(200, response.status)
         self.assertEqual("application/json", response.content_type)
