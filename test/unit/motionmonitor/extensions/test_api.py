@@ -11,6 +11,8 @@ from motionmonitor.const import KEY_MM
 from motionmonitor.extensions.api import API, APICameraSnapshotsView, APICamerasView, APICameraEntityView, \
     APICameraSnapshotEntityView
 from motionmonitor.models import Camera, Frame
+from motionmonitor.config import ConfigReader
+from test.unit.utils import create_image_file
 
 CAMERA_ID = "1"
 
@@ -122,11 +124,15 @@ class TestAPICameraSnapshotsView(unittest.TestCase):
 
 class TestAPICameraSnapshotEntityView(unittest.TestCase):
     def setUp(self) -> None:
+        config = ConfigReader().read_config("motion-monitor.ini.test", False)
+        filename = config["GENERAL"]["TARGET_DIR"] + "TestFile.jpg"
+        create_image_file(filename)
+
         self.loop = asyncio.new_event_loop()
 
         self.camera = Camera(CAMERA_ID)
         timestamp = datetime.now()
-        f = Frame(self.camera.id, timestamp, 1, "filename1")
+        f = Frame(self.camera.id, timestamp, 1, filename)
         self.camera.append_snapshot_frame(f)
 
         mm = Mock()

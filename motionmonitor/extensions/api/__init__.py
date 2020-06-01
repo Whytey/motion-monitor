@@ -1,3 +1,4 @@
+import base64
 import json
 import logging
 from datetime import datetime
@@ -7,6 +8,7 @@ from aiohttp.web_exceptions import HTTPBadRequest
 
 from motionmonitor.const import KEY_MM
 from motionmonitor.models import Frame
+from motionmonitor.utils import convert_image
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -175,10 +177,23 @@ class APICameraSnapshotEntityView(BaseAPIView):
         timestamp = datetime.strptime(request.match_info['timestamp'], "%Y%m%d%H%M%S")
         frame = request.match_info['frame']
 
+        scale = None
         if "scale" in request.query:
-            _LOGGER.debug("Need to scale: {}".format(request.query["scale"]))
+            scale = request.query["scale"]
+            _LOGGER.debug("Need to scale: {}".format(scale))
+            try:
+                scale = float(scale)
+            except ValueError:
+                _LOGGER.error("Scale is not a float: {}".format(scale))
+                raise HTTPBadRequest()
+
+        img_format = "JSON"
         if "format" in request.query:
-            _LOGGER.debug("Need to format: {}".format(request.query["format"]))
+            img_format = request.query["format"]
+            _LOGGER.debug("Need to format: {}".format(img_format))
+            if img_format not in ["JPEG", "PNG", "GIF", "BMP"]:
+                _LOGGER.error("Format is not a recognised option: {}".format(img_format))
+                raise HTTPBadRequest()
 
         mm = request.app[KEY_MM]
         try:
@@ -188,8 +203,14 @@ class APICameraSnapshotEntityView(BaseAPIView):
             _LOGGER.error("Invalid cameraId: {}".format(camera_id))
             raise HTTPBadRequest()
 
-        response = snapshot.to_json()
-        return web.Response(text=json.dumps(response), content_type='application/json')
+        if img_format == "JSON":
+            img_bytes = convert_image(snapshot, "JPEG", scale)
+            response = snapshot.to_json()
+            response["jpeg_bytes"] = base64.b64encode(img_bytes).decode('ascii')
+            return web.Response(text=json.dumps(response), content_type='application/json')
+        else:
+            img_bytes = convert_image(snapshot, img_format, scale)
+            return web.Response(body=img_bytes, content_type="image/{}".format(img_format))
 
     async def delete(self, request):
         camera_id = request.match_info['camera_id']
