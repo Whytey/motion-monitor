@@ -37,8 +37,14 @@ class API:
         self.register_view(APICamerasView)
         self.register_view(APICameraEntityView)
         self.register_view(APICameraSnapshotsView)
-        self.register_view(APICameraSnapshotEntityView)
+        self.register_view(APICameraSnapshotFrameView)
         self.register_view(APICameraSnapshotTimelapseView)
+        self.register_view(APICameraEventsView)
+        self.register_view(APICameraEventsTimelapseView)
+        self.register_view(APICameraEventEntityView)
+        self.register_view(APICameraEventFrameView)
+        self.register_view(APICameraEventTimelapseView)
+        self.register_view(APIJobsView)
 
         runner = web.AppRunner(app)
         await runner.setup()
@@ -103,7 +109,8 @@ class APIRootView(BaseAPIView):
     async def get(self, request):
         response = {"application": "Motion Monitor", "version": 0.1, "routes": []}
         for route in request.app.router.routes():
-            route_desc = {"name": route.name, "method": route.method, "url": route.resource.canonical, "description": "<str>"}
+            route_desc = {"name": route.name, "method": route.method, "url": route.resource.canonical,
+                          "description": "<str>"}
             response["routes"].append(route_desc)
         return web.Response(text=json.dumps(response), content_type='application/json')
 
@@ -162,17 +169,17 @@ class APICameraSnapshotsView(BaseAPIView):
             frame_num = snapshot.frame_num
             snapshot_desc = {"timestamp": timestamp, "frame": frame_num,
                              "url": str(
-                                 request.app.router[APICameraSnapshotEntityView.name].url_for(camera_id=camera_id,
-                                                                                              timestamp=timestamp,
-                                                                                              frame=frame_num))}
+                                 request.app.router[APICameraSnapshotFrameView.name].url_for(camera_id=camera_id,
+                                                                                             timestamp=timestamp,
+                                                                                             frame=frame_num))}
             response["snapshots"].append(snapshot_desc)
         return web.Response(text=json.dumps(response), content_type='application/json')
 
 
-class APICameraSnapshotEntityView(BaseAPIView):
+class APICameraSnapshotFrameView(BaseAPIView):
     url = "/cameras/{camera_id}/snapshots/{timestamp}/{frame}"
-    name = "api:camera-snapshot-entity"
-    description = "Returns the snapshot for the specified camera_id, timestamp and frame"
+    name = "api:camera-snapshot-frame"
+    description = "Returns the snapshot frame for the specified camera_id, timestamp and frame"
 
     async def get(self, request):
         camera_id = request.match_info['camera_id']
@@ -229,3 +236,69 @@ class APICameraSnapshotTimelapseView(BaseAPIView):
 
     async def get(self, request):
         raise HTTPNotImplemented()
+
+
+class APICameraEventsView(BaseAPIView):
+    url = "/cameras/{camera_id}/events"
+    name = "api:camera-events"
+    description = "Returns the events that we have recorded for a specified camera_id"
+
+    async def get(self, request):
+        raise HTTPNotImplemented()
+
+
+class APICameraEventsTimelapseView(BaseAPIView):
+    url = "/cameras/{camera_id}/events/timelapse"
+    name = "api:camera-events-timelapse"
+    description = "Returns the frames that make up a timelapse of the events for the specified camera_id"
+
+    async def get(self, request):
+        raise HTTPNotImplemented()
+
+
+class APICameraEventEntityView(BaseAPIView):
+    url = "/cameras/{camera_id}/events/{event_id}"
+    name = "api:camera-event-entity"
+    description = "Returns the event specified by camera_id and event_id"
+
+    async def get(self, request):
+        raise HTTPNotImplemented()
+
+    async def delete(self, request):
+        raise HTTPNotImplemented()
+
+
+class APICameraEventFrameView(BaseAPIView):
+    url = "/cameras/{camera_id}/events/{event_id}/{timestamp}/{frame}"
+    name = "api:camera-event-frame"
+    description = "Returns a frame from an event as specified by camera_id, event_id, timestamp and frame"
+
+    async def get(self, request):
+        raise HTTPNotImplemented()
+
+    async def delete(self, request):
+        raise HTTPNotImplemented()
+
+
+class APICameraEventTimelapseView(BaseAPIView):
+    url = "/cameras/{camera_id}/events/{event_id}/timelapse"
+    name = "api:camera-event-timelapse"
+    description = "Returns the frames that make up a timelapse of the event specified by camera_id and event_id"
+
+    async def get(self, request):
+        raise HTTPNotImplemented()
+
+
+class APIJobsView(BaseAPIView):
+    url = "/jobs"
+    name = "api:jobs"
+    description = "Returns the known jobs."
+
+    async def get(self, request):
+        mm = request.app[KEY_MM]
+        response = {"jobs": []}
+        for job in mm.jobs:
+            job_desc = {"jobId": job.id,
+                        "name": job.name}
+            response["jobs"].append(job_desc)
+        return web.Response(text=json.dumps(response), content_type='application/json')

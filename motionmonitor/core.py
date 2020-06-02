@@ -20,7 +20,7 @@ class MotionMonitor(object):
         self.config = config
         self.loop = loop
         self.bus = EventBus(self)
-        self._jobs = OrderedDict()
+        self.jobs = OrderedDict()
 
         self.bus.listen(EVENT_JOB, self.job_handler)
         self.cameras = {}
@@ -41,10 +41,10 @@ class MotionMonitor(object):
     def job_handler(self, event):
         self.__logger.debug("Handling a job event: {}".format(event))
         job = event.data
-        self._jobs[job.id] = job
-        while (len(self._jobs) > MAX_JOBQ_SIZE):
+        self.jobs[job.id] = job
+        while (len(self.jobs) > MAX_JOBQ_SIZE):
             self.__logger.debug("Too many jobs in the queue, popping the oldest")
-            self._jobs.popitem(False)
+            self.jobs.popitem(False)
 
     def __load_extensions(self):
         main_module = "__init__"
