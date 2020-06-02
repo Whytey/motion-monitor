@@ -4,7 +4,7 @@ import logging
 from datetime import datetime
 
 from aiohttp import web
-from aiohttp.web_exceptions import HTTPBadRequest
+from aiohttp.web_exceptions import HTTPBadRequest, HTTPNotImplemented
 
 from motionmonitor.const import KEY_MM
 from motionmonitor.models import Frame
@@ -38,6 +38,7 @@ class API:
         self.register_view(APICameraEntityView)
         self.register_view(APICameraSnapshotsView)
         self.register_view(APICameraSnapshotEntityView)
+        self.register_view(APICameraSnapshotTimelapseView)
 
         runner = web.AppRunner(app)
         await runner.setup()
@@ -102,7 +103,7 @@ class APIRootView(BaseAPIView):
     async def get(self, request):
         response = {"application": "Motion Monitor", "version": 0.1, "routes": []}
         for route in request.app.router.routes():
-            route_desc = {"name": route.name, "method": route.method, "url": "<relative-url>", "description": "<str>"}
+            route_desc = {"name": route.name, "method": route.method, "url": route.resource.canonical, "description": "<str>"}
             response["routes"].append(route_desc)
         return web.Response(text=json.dumps(response), content_type='application/json')
 
@@ -125,7 +126,7 @@ class APICamerasView(BaseAPIView):
 class APICameraEntityView(BaseAPIView):
     url = "/cameras/{camera_id}"
     name = "api:camera-entity"
-    description = "Provides a detailed view of a specific camera"
+    description = "Provides a detailed view of a specific camera_id"
 
     async def get(self, request):
         camera_id = request.match_info['camera_id']
@@ -142,7 +143,7 @@ class APICameraEntityView(BaseAPIView):
 class APICameraSnapshotsView(BaseAPIView):
     url = "/cameras/{camera_id}/snapshots"
     name = "api:camera-snapshots"
-    description = "Lists the snapshots related to this camera"
+    description = "Lists the snapshots related to this camera_id"
 
     async def get(self, request):
         camera_id = request.match_info['camera_id']
@@ -154,7 +155,8 @@ class APICameraSnapshotsView(BaseAPIView):
             _LOGGER.error("Invalid cameraId: {}".format(camera_id))
             raise HTTPBadRequest()
 
-        response = {"snapshots": []}
+        response = {"snapshots": [],
+                    "url": str(request.app.router[APICameraSnapshotTimelapseView.name].url_for(camera_id=camera_id))}
         for snapshot in camera.recent_snapshots.values():
             timestamp = snapshot.timestamp.strftime("%Y%m%d%H%M%S")
             frame_num = snapshot.frame_num
@@ -170,7 +172,7 @@ class APICameraSnapshotsView(BaseAPIView):
 class APICameraSnapshotEntityView(BaseAPIView):
     url = "/cameras/{camera_id}/snapshots/{timestamp}/{frame}"
     name = "api:camera-snapshot-entity"
-    description = "Lists the snapshots related to this camera"
+    description = "Returns the snapshot for the specified camera_id, timestamp and frame"
 
     async def get(self, request):
         camera_id = request.match_info['camera_id']
@@ -218,3 +220,12 @@ class APICameraSnapshotEntityView(BaseAPIView):
         frame = request.match_info['frame']
         response = {"Message": "Not yet implemented"}
         return web.Response(text=json.dumps(response), content_type='application/json')
+
+
+class APICameraSnapshotTimelapseView(BaseAPIView):
+    url = "/cameras/{camera_id}/snapshots/timelapse"
+    name = "api:camera-snapshot-timelapse"
+    description = "Returns the snapshots that make up a timelapse for the specified camera_id"
+
+    async def get(self, request):
+        raise HTTPNotImplemented()
