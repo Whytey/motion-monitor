@@ -22,7 +22,7 @@ class APItoHTML:
         self.mm = mm
 
     async def start_extension(self):
-        self.mm.api.router.add_static('/static', 'html', show_index=True)
+        self.mm.api.app.router.add_static('/static', 'html', show_index=True)
 
 
 class API:
@@ -64,7 +64,7 @@ class API:
         site = web.TCPSite(runner, 'localhost', self.__port)
         await site.start()
 
-        self.mm.api = app
+        self.mm.api = self
 
         self.__logger.info("Listening on port {}...".format(self.__port))
 
