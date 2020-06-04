@@ -14,7 +14,15 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def get_extension(mm):
-    return API(mm)
+    return [API(mm), APItoHTML(mm)]
+
+
+class APItoHTML:
+    def __init__(self, mm):
+        self.mm = mm
+
+    async def start_extension(self):
+        self.mm.api.router.add_static('/static', 'html', show_index=True)
 
 
 class API:
@@ -46,8 +54,6 @@ class API:
         self.register_view(APICameraEventTimelapseView)
         self.register_view(APIJobsView)
 
-        app.router.add_static('/static', 'html')
-
         # Prevent the router from getting frozen so that extensions are able to add new routes, even after
         # the server has started.  Inspired by Home-Assistant code (https://github.com/home-assistant).
         # pylint: disable=protected-access
@@ -58,7 +64,7 @@ class API:
         site = web.TCPSite(runner, 'localhost', self.__port)
         await site.start()
 
-        self.mm.api = self
+        self.mm.api = app
 
         self.__logger.info("Listening on port {}...".format(self.__port))
 

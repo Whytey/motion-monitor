@@ -37,7 +37,6 @@
                   var destUrl = valueElem.text().slice(1, -1);
                   valueElem
                     .css( "background", "#c8ebcc" )
-                    .click(function() {loadJson(destUrl);})
                     .wrap("<a href='#" + destUrl + "'></a>");
               }
           });
@@ -51,12 +50,15 @@
         if (hash.length > 1) {
             hash = hash.substring(1);
             url = hash;
+        } else {
+            url = '/';
         }
 
         loadJson(url + "#" + hash);
     }
 
     $(window).bind( 'hashchange', function(e) {
+        console.log("hashchange fired");
         doStuff();
     });
 
