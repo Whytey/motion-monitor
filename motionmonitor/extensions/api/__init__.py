@@ -120,12 +120,20 @@ class APIRootView(BaseAPIView):
     description = "Describes the available API endpoints"
 
     async def get(self, request):
-        response = {"application": "Motion Monitor", "version": 0.1, "routes": []}
+        response = APIResponse("route")
+        response.set_property("application", "Motion Monitor")
+        response.set_property("version", 0.1)
+        response.append_link("self", self.url)
         for route in request.app.router.routes():
-            route_desc = {"name": route.name, "method": route.method, "url": route.resource.canonical,
-                          "description": "<str>"}
-            response["routes"].append(route_desc)
-        return web.Response(text=json.dumps(response), content_type='application/json')
+            entity = APIResponse()
+            entity.set_property("name", route.name)
+            entity.set_property("method", route.method)
+            entity.set_property("url", route.resource.canonical)
+            entity.set_property("description", "<str>")
+            if route.method.upper() == "GET" and "{" not in route.resource.canonical:
+                entity.append_link("self", route.resource.canonical)
+            response.entities.append(entity)
+        return web.Response(text=json.dumps(response.jsonify()), content_type='application/json')
 
 
 class APICamerasView(BaseAPIView):
@@ -135,12 +143,14 @@ class APICamerasView(BaseAPIView):
 
     async def get(self, request):
         mm = request.app[KEY_MM]
-        response = {"cameras": []}
+        response = APIResponse("camera")
+        response.append_link("self", str(request.app.router[self.name].url_for()))
         for camera_id in mm.cameras:
-            camera_desc = {"cameraId": camera_id,
-                           "url": str(request.app.router[APICameraEntityView.name].url_for(camera_id=camera_id))}
-            response["cameras"].append(camera_desc)
-        return web.Response(text=json.dumps(response), content_type='application/json')
+            entity = APIResponse()
+            entity.set_property("cameraId", camera_id)
+            entity.append_link("self", str(request.app.router[APICameraEntityView.name].url_for(camera_id=camera_id)))
+            response.entities.append(entity)
+        return web.Response(text=json.dumps(response.jsonify()), content_type='application/json')
 
 
 class APICameraEntityView(BaseAPIView):
@@ -315,3 +325,37 @@ class APIJobsView(BaseAPIView):
                         "name": job.name}
             response["jobs"].append(job_desc)
         return web.Response(text=json.dumps(response), content_type='application/json')
+
+
+class APIResponse:
+    def __init__(self, type=None):
+        self.type = type
+        self.links = []
+        self.actions = []
+        self.properties = {}
+        self.entities = []
+
+    def set_property(self, name: str, value):
+        self.properties[name] = value
+
+    def append_link(self, relationship: str, href: str):
+        self.links.append({"rel": relationship, "href": href})
+
+    def jsonify(self):
+        response = {}
+        if self.type:
+            response["type"] = self.type
+
+        if self.links:
+            response["links"] = self.links
+
+        if self.actions:
+            response["actions"] = self.actions
+
+        response["properties"] = self.properties
+
+        if self.entities:
+            response["entities"] = []
+            for entity in self.entities:
+                response["entities"].append(entity.jsonify())
+        return response

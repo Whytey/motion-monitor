@@ -32,7 +32,7 @@
           $("#dest").html(renderjson.set_show_to_level("all").set_icons('+', '-').set_max_string_length(100) (data));
           $("span[class='key']").each(function() {
 
-              if ($(this).text() == "\"url\"") {
+              if ($(this).text() == "\"href\"") {
                   var valueElem = $(this).next().next().next(".string");
                   var destUrl = valueElem.text().slice(1, -1);
                   valueElem
