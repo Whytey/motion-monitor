@@ -46,6 +46,13 @@ class API:
         self.register_view(APICameraEventTimelapseView)
         self.register_view(APIJobsView)
 
+        app.router.add_static('/static', 'html')
+
+        # Prevent the router from getting frozen so that extensions are able to add new routes, even after
+        # the server has started.  Inspired by Home-Assistant code (https://github.com/home-assistant).
+        # pylint: disable=protected-access
+        app._router.freeze = lambda: None
+
         runner = web.AppRunner(app)
         await runner.setup()
         site = web.TCPSite(runner, 'localhost', self.__port)

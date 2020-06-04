@@ -1,0 +1,68 @@
+
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <style>
+      .renderjson a { text-decoration: none; }
+      .renderjson .disclosure { color: crimson;
+                                font-size: 150%; }
+      .renderjson .syntax { color: grey; }
+      .renderjson .string { color: darkred; }
+      .renderjson .number { color: darkcyan; }
+      .renderjson .boolean { color: blueviolet; }
+      .renderjson .key    { color: darkblue; }
+      .renderjson .keyword { color: blue; }
+      .renderjson .object.syntax { color: lightseagreen; }
+      .renderjson .array.syntax  { color: orange; }
+    </style>
+    <title></title>
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+
+  </head>
+  <body>
+    <h1></h1>
+
+    <div id="dest"></div>
+
+    <script type="text/javascript" src="renderjson.js"></script>
+    <script>
+    let url = '/';
+    function loadJson(url) {
+      $.getJSON(url, function(data) {
+          $("#dest").html(renderjson.set_show_to_level("all").set_icons('+', '-').set_max_string_length(100) (data));
+          $("span[class='key']").each(function() {
+
+              if ($(this).text() == "\"url\"") {
+                  var valueElem = $(this).next().next().next(".string");
+                  var destUrl = valueElem.text().slice(1, -1);
+                  valueElem
+                    .css( "background", "#c8ebcc" )
+                    .click(function() {loadJson(destUrl);})
+                    .wrap("<a href='#" + destUrl + "'></a>");
+              }
+          });
+
+
+      });
+    }
+
+    function doStuff() {
+        var hash = $(location).attr('hash')
+        if (hash.length > 1) {
+            hash = hash.substring(1);
+            url = hash;
+        }
+
+        loadJson(url + "#" + hash);
+    }
+
+    $(window).bind( 'hashchange', function(e) {
+        doStuff();
+    });
+
+    $( document ).ready(function() {
+        doStuff();
+    });
+    </script>
+  </body>
+</html>

@@ -142,8 +142,8 @@ class Camera:
 
         self.__camera_id = camera_id
         self.__state = self.STATE_IDLE
-        self.__recent_snapshots = FixedSizeOrderedDict(max=1000)
-        self.__recent_motion = deque([], 10)
+        self.__recent_snapshots = FixedSizeOrderedDict(max=1800)
+        self.__recent_motion = deque([], 100)
 
     @property
     def id(self):

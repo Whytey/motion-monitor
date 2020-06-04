@@ -26,7 +26,6 @@ class MotionMonitor(object):
         self.cameras = {}
 
         self.__camera_monitor = motionmonitor.cameramonitor.CameraMonitor(self)
-        # self.__sqlwriter = extensions.mysql_db_server.__init__.SQLWriter(self)
 
         self.extensions = self.__load_extensions()
 

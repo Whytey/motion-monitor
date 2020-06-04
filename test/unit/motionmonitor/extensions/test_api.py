@@ -7,11 +7,11 @@ from unittest.mock import Mock
 
 from aiohttp.test_utils import make_mocked_request
 
+from motionmonitor.config import ConfigReader
 from motionmonitor.const import KEY_MM
 from motionmonitor.extensions.api import API, APICameraSnapshotsView, APICamerasView, APICameraEntityView, \
     APICameraSnapshotFrameView
 from motionmonitor.models import Camera, Frame
-from motionmonitor.config import ConfigReader
 from test.unit.utils import create_image_file
 
 CAMERA_ID = "1"
@@ -140,9 +140,9 @@ class TestAPICameraSnapshotEntityView(unittest.TestCase):
         mm.cameras = {CAMERA_ID: self.camera}
 
         self.request = make_mocked_request("GET", APICameraSnapshotFrameView.url, match_info={"camera_id": CAMERA_ID,
-                                                                                               "timestamp": timestamp.strftime(
-                                                                                                   "%Y%m%d%H%M%S"),
-                                                                                               "frame": 1})
+                                                                                              "timestamp": timestamp.strftime(
+                                                                                                  "%Y%m%d%H%M%S"),
+                                                                                              "frame": 1})
         self.request.app[KEY_MM] = mm
 
     def test_simple(self):
