@@ -22,48 +22,61 @@
   <body>
     <h1></h1>
 
-    <div id="dest"></div>
-
+    <div id="jsonDest"></div>
+    <img id="imageDest" src=""></img>
     <script type="text/javascript" src="renderjson.js"></script>
     <script>
     let url = '/';
-    function loadJson(url) {
-      $.getJSON(url, function(data) {
-          $("#dest").html(renderjson.set_show_to_level("all").set_icons('+', '-').set_max_string_length(100) (data));
-          $("span[class='key']").each(function() {
+    function loadJson() {
+      var hash = $(location).attr('hash')
+      if (hash.length > 1) {
+          hash = hash.substring(1);
+          url = hash;
+      } else {
+          url = '/';
+      }
 
-              if ($(this).text() == "\"href\"") {
-                  var valueElem = $(this).next().next().next(".string");
-                  var destUrl = valueElem.text().slice(1, -1);
-                  valueElem
-                    .css( "background", "#c8ebcc" )
-                    .wrap("<a href='#" + destUrl + "'></a>");
+      $.ajax({
+          type: "GET",
+          url: url,
+          success: function(response, status, xhr) {
+
+              // The default, show JSON.
+              $("#jsonDest").show();
+              $("#imageDest").hide();
+
+              // Check the content-type of the response, was it JSON or an image?
+              var ct = xhr.getResponseHeader("content-type") || "";
+              console.log(ct);
+              if (ct.indexOf('image') > -1) {
+                // Got an image, set the URL, show the image and hide the JSON.
+                $("#imageDest").attr("src",url).show();
+                $("#jsonDest").hide();
               }
-          });
+              if (ct.indexOf('json') > -1) {
+                  $("#jsonDest").html(renderjson.set_show_to_level("all").set_icons('+', '-').set_max_string_length(100) (response));
+                  $("span[class='key']").each(function() {
+                      if ($(this).text() == "\"href\"") {
+                          var valueElem = $(this).next().next().next(".string");
+                          var destUrl = valueElem.text().slice(1, -1);
+                          valueElem
+                            .css( "background", "#c8ebcc" )
+                            .wrap("<a href='#" + destUrl + "'></a>");
+                      }
+                  });
+              }
 
-
+          }
       });
-    }
-
-    function doStuff() {
-        var hash = $(location).attr('hash')
-        if (hash.length > 1) {
-            hash = hash.substring(1);
-            url = hash;
-        } else {
-            url = '/';
-        }
-
-        loadJson(url + "#" + hash);
     }
 
     $(window).bind( 'hashchange', function(e) {
         console.log("hashchange fired");
-        doStuff();
+        loadJson();
     });
 
     $( document ).ready(function() {
-        doStuff();
+        loadJson();
     });
     </script>
   </body>

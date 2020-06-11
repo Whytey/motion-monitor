@@ -66,8 +66,8 @@ class TestAPICamerasView(unittest.TestCase):
         self.assertEqual(200, response.status)
         self.assertEqual("application/json", response.content_type)
         json_data = json.loads(response.body)
-        self.assertEqual(1, len(json_data["cameras"]))
-        self.assertIsNotNone(json_data["cameras"][0]["url"])
+        self.assertEqual(1, len(json_data["entities"]))
+        self.assertIsNotNone(json_data["entities"][0]["href"])
 
 
 class TestAPICameraEntityView(unittest.TestCase):
@@ -87,7 +87,7 @@ class TestAPICameraEntityView(unittest.TestCase):
         self.assertEqual(200, response.status)
         self.assertEqual("application/json", response.content_type)
         json_data = json.loads(response.body)
-        self.assertEqual(CAMERA_ID, json_data["cameraId"])
+        self.assertEqual(CAMERA_ID, json_data["properties"]["cameraId"])
 
 
 class TestAPICameraSnapshotsView(unittest.TestCase):
@@ -108,7 +108,7 @@ class TestAPICameraSnapshotsView(unittest.TestCase):
         self.assertEqual(200, response.status)
         self.assertEqual("application/json", response.content_type)
         json_data = json.loads(response.body)
-        self.assertEqual(0, len(json_data["snapshots"]))
+        self.assertEqual(0, len(json_data["entities"]))
 
     def test_single_snapshot(self):
         f = Frame(self.camera, datetime.now(), 1, "filename2")
@@ -119,7 +119,7 @@ class TestAPICameraSnapshotsView(unittest.TestCase):
         self.assertEqual(200, response.status)
         self.assertEqual("application/json", response.content_type)
         json_data = json.loads(response.body)
-        self.assertEqual(1, len(json_data["snapshots"]))
+        self.assertEqual(1, len(json_data["entities"]))
 
 
 class TestAPICameraSnapshotEntityView(unittest.TestCase):

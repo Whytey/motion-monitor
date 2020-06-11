@@ -50,7 +50,7 @@ class CameraMonitor():
             self.__create_camera(motion_frame.camera_id)
 
         if len(self.mm.cameras[motion_frame.camera_id].recent_motion) == 0 or \
-                self.mm.cameras[motion_frame.camera_id].recent_motion[0].event_id != motion_frame.event_id:
+                self.mm.cameras[motion_frame.camera_id].recent_motion[0].id != motion_frame.event_id:
             self.__logger.warning(
                 "Must have missed the start event '{}', forcing creation".format(motion_frame.event_id))
             new_event = Event(motion_frame.event_id, motion_frame.camera_id, motion_frame.timestamp)

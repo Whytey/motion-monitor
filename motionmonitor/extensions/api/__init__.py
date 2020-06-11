@@ -7,6 +7,7 @@ from aiohttp import web
 from aiohttp.web_exceptions import HTTPBadRequest, HTTPNotImplemented
 
 from motionmonitor.const import KEY_MM
+from motionmonitor.extensions.api.siren import Entity, EmbeddedRepresentationSubEntity
 from motionmonitor.models import Frame
 from motionmonitor.utils import convert_image
 
@@ -95,9 +96,9 @@ class API:
 class BaseAPIView:
     """Base view for all views."""
 
-    # url = None
-    # name = None
-    # description = None
+    url = None
+    name = None
+    description = None
     extra_urls = []
 
     def register(self, app, router):
@@ -113,6 +114,29 @@ class BaseAPIView:
 
             router.add_route(method, self.url, handler, name=self.name)
 
+    @classmethod
+    def to_entity_repr(cls, request, classes=[], path_params={}, query_params={}):
+        return {
+            "class": classes,
+            "properties": {
+            },
+            "entities": [],
+            "links": [
+                {
+                    "rel": ["self"],
+                    "href": str(request.app.router[cls.name].url_for(**path_params).with_query(query_params))
+                }
+            ],
+        }
+
+    @classmethod
+    def to_link_repr(cls, request, classes=[], rel=[], path_params={}, query_params={}):
+        return {
+            "class": classes,
+            "rel": rel,
+            "href": str(request.app.router[cls.name].url_for(**path_params).with_query(query_params))
+        }
+
 
 class APIRootView(BaseAPIView):
     url = "/"
@@ -120,20 +144,20 @@ class APIRootView(BaseAPIView):
     description = "Describes the available API endpoints"
 
     async def get(self, request):
-        response = APIResponse("route")
+        response = Entity(["route"])
         response.set_property("application", "Motion Monitor")
         response.set_property("version", 0.1)
         response.append_link("self", self.url)
         for route in request.app.router.routes():
-            entity = APIResponse()
+            entity = EmbeddedRepresentationSubEntity(["link"])
             entity.set_property("name", route.name)
             entity.set_property("method", route.method)
             entity.set_property("url", route.resource.canonical)
             entity.set_property("description", "<str>")
             if route.method.upper() == "GET" and "{" not in route.resource.canonical:
                 entity.append_link("self", route.resource.canonical)
-            response.entities.append(entity)
-        return web.Response(text=json.dumps(response.jsonify()), content_type='application/json')
+            response.add_sub_entity(entity)
+        return web.Response(text=json.dumps(response.to_json()), content_type='application/json')
 
 
 class APICamerasView(BaseAPIView):
@@ -143,14 +167,13 @@ class APICamerasView(BaseAPIView):
 
     async def get(self, request):
         mm = request.app[KEY_MM]
-        response = APIResponse("camera")
-        response.append_link("self", str(request.app.router[self.name].url_for()))
+        response = self.to_entity_repr(request, ["cameras"])
         for camera_id in mm.cameras:
-            entity = APIResponse()
-            entity.set_property("cameraId", camera_id)
-            entity.append_link("self", str(request.app.router[APICameraEntityView.name].url_for(camera_id=camera_id)))
-            response.entities.append(entity)
-        return web.Response(text=json.dumps(response.jsonify()), content_type='application/json')
+            camera = mm.cameras[camera_id]
+            camera_resp = APICameraEntityView.to_link_repr(request, [], ["item"], {"camera_id": camera_id})
+            camera_resp["rel"].append("item")
+            response["entities"].append(camera_resp)
+        return web.Response(text=json.dumps(response), content_type='application/json')
 
 
 class APICameraEntityView(BaseAPIView):
@@ -158,16 +181,47 @@ class APICameraEntityView(BaseAPIView):
     name = "api:camera-entity"
     description = "Provides a detailed view of a specific camera_id"
 
+    def __init__(self):
+        super(BaseAPIView).__init__()
+
     async def get(self, request):
         camera_id = request.match_info['camera_id']
 
         mm = request.app[KEY_MM]
         try:
-            response = mm.cameras[camera_id].to_json()
-            return web.Response(text=json.dumps(response), content_type='application/json')
+            camera = mm.cameras[camera_id]
         except KeyError as e:
             _LOGGER.error("Invalid cameraId: {}".format(camera_id))
             raise HTTPBadRequest()
+
+        response = self.to_entity_repr(request, ["cameras"], {"camera_id": camera_id})
+        response["properties"] = {
+            "cameraId": camera.id,
+            "state": camera.state
+        }
+        # The last-snapshot sub-entity
+        last_snapshot = camera.last_snapshot
+        if last_snapshot:
+            response["entities"].append(
+                APICameraSnapshotFrameView.to_link_repr(request, ["frame"],
+                                                        rel=["http://motion-monitor/rel/last-snapshot"],
+                                                        path_params={"camera_id": camera_id,
+                                                                     "timestamp": last_snapshot.timestamp.strftime(
+                                                                         "%Y%m%d%H%M%S"),
+                                                                     "frame": last_snapshot.frame_num}))
+
+        # The recent-snapshots sub-entity
+        response["entities"].append(
+            APICameraSnapshotsView.to_link_repr(request, ["frames"],
+                                                rel=["http://motion-monitor/rel/recent-snapshots"],
+                                                path_params={"camera_id": camera_id}))
+
+        # The recent motion sub-entity
+        response["entities"].append(
+            APICameraEventsView.to_link_repr(request, ["events"],
+                                             rel=["http://motion-monitor/rel/recent-motion"],
+                                             path_params={"camera_id": camera_id}))
+        return web.Response(text=json.dumps(response), content_type='application/json')
 
 
 class APICameraSnapshotsView(BaseAPIView):
@@ -185,17 +239,21 @@ class APICameraSnapshotsView(BaseAPIView):
             _LOGGER.error("Invalid cameraId: {}".format(camera_id))
             raise HTTPBadRequest()
 
-        response = {"snapshots": [],
-                    "url": str(request.app.router[APICameraSnapshotTimelapseView.name].url_for(camera_id=camera_id))}
+        response = self.to_entity_repr(request, ["snapshots"], path_params={"camera_id": camera_id})
+        response["links"].append(APICameraSnapshotTimelapseView.to_link_repr(request,
+                                                                             rel=["timelapse"],
+                                                                             path_params={"camera_id": camera_id}))
         for snapshot in camera.recent_snapshots.values():
             timestamp = snapshot.timestamp.strftime("%Y%m%d%H%M%S")
             frame_num = snapshot.frame_num
-            snapshot_desc = {"timestamp": timestamp, "frame": frame_num,
-                             "url": str(
-                                 request.app.router[APICameraSnapshotFrameView.name].url_for(camera_id=camera_id,
-                                                                                             timestamp=timestamp,
-                                                                                             frame=frame_num))}
-            response["snapshots"].append(snapshot_desc)
+
+            response["entities"].append(APICameraSnapshotFrameView.to_link_repr(request,
+                                                                                ["snapshot"],
+                                                                                ["item"],
+                                                                                path_params={"camera_id": camera_id,
+                                                                                             "timestamp": timestamp,
+                                                                                             "frame": frame_num}))
+
         return web.Response(text=json.dumps(response), content_type='application/json')
 
 
@@ -223,7 +281,7 @@ class APICameraSnapshotFrameView(BaseAPIView):
         if "format" in request.query:
             img_format = request.query["format"]
             _LOGGER.debug("Need to format: {}".format(img_format))
-            if img_format not in ["JPEG", "PNG", "GIF", "BMP"]:
+            if img_format.upper() not in ["JPEG", "PNG", "GIF", "BMP"]:
                 _LOGGER.error("Format is not a recognised option: {}".format(img_format))
                 raise HTTPBadRequest()
 
@@ -237,8 +295,27 @@ class APICameraSnapshotFrameView(BaseAPIView):
 
         if img_format == "JSON":
             img_bytes = convert_image(snapshot, "JPEG", scale)
-            response = snapshot.to_json()
-            response["jpeg_bytes"] = base64.b64encode(img_bytes).decode('ascii')
+
+            snapshot_params = {
+                "camera_id": camera_id,
+                "timestamp": timestamp.strftime("%Y%m%d%H%M%S"),
+                "frame": frame
+            }
+
+            response = self.to_entity_repr(request, ["frame"], path_params=snapshot_params)
+            response["properties"] = {
+                "cameraId": camera_id,
+                "timestamp": timestamp.strftime("%Y%m%d%H%M%S"),
+                "frame": frame,
+                "filename": snapshot.filename,
+                "jpegBytes": base64.b64encode(img_bytes).decode('ascii'),
+            }
+
+            response["links"].append(self.to_link_repr(request, rel=["jpeg"], path_params=snapshot_params,
+                                                       query_params={"format": "jpeg"}))
+            response["links"].append(self.to_link_repr(request, rel=["jpeg-thumbnail"], path_params=snapshot_params,
+                                                       query_params={"format": "jpeg", "scale": "0.2"}))
+
             return web.Response(text=json.dumps(response), content_type='application/json')
         else:
             img_bytes = convert_image(snapshot, img_format, scale)
@@ -325,37 +402,3 @@ class APIJobsView(BaseAPIView):
                         "name": job.name}
             response["jobs"].append(job_desc)
         return web.Response(text=json.dumps(response), content_type='application/json')
-
-
-class APIResponse:
-    def __init__(self, type=None):
-        self.type = type
-        self.links = []
-        self.actions = []
-        self.properties = {}
-        self.entities = []
-
-    def set_property(self, name: str, value):
-        self.properties[name] = value
-
-    def append_link(self, relationship: str, href: str):
-        self.links.append({"rel": relationship, "href": href})
-
-    def jsonify(self):
-        response = {}
-        if self.type:
-            response["type"] = self.type
-
-        if self.links:
-            response["links"] = self.links
-
-        if self.actions:
-            response["actions"] = self.actions
-
-        response["properties"] = self.properties
-
-        if self.entities:
-            response["entities"] = []
-            for entity in self.entities:
-                response["entities"].append(entity.jsonify())
-        return response
