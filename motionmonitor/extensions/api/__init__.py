@@ -396,9 +396,22 @@ class APIJobsView(BaseAPIView):
 
     async def get(self, request):
         mm = request.app[KEY_MM]
-        response = {"jobs": []}
+        response = self.to_entity_repr(request, ["jobs"])
         for job in mm.jobs:
+            response["entities"].append(APIJobEntityView.to_link_repr(request, ["job"],
+                                                                      rel=["item"],
+                                                                      path_params={"job_id": job.id}))
             job_desc = {"jobId": job.id,
                         "name": job.name}
             response["jobs"].append(job_desc)
+        return web.Response(text=json.dumps(response), content_type='application/json')
+
+
+class APIJobEntityView(BaseAPIView):
+    url = "/jobs/{job_id}"
+    name = "api:job-entity"
+    description = "Returns specified job."
+
+    async def get(self, request):
+        response = self.to_entity_repr(request, ["job"])
         return web.Response(text=json.dumps(response), content_type='application/json')
