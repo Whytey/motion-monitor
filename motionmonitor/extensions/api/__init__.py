@@ -23,7 +23,7 @@ class APItoHTML:
         self.mm = mm
 
     async def start_extension(self):
-        self.mm.api.app.router.add_static('/static', 'html', show_index=True)
+        self.mm.api.app.router.add_static('/static', 'motionmonitor/extensions/api/html', show_index=True)
 
 
 class API:
@@ -344,7 +344,22 @@ class APICameraEventsView(BaseAPIView):
     description = "Returns the events that we have recorded for a specified camera_id"
 
     async def get(self, request):
-        raise HTTPNotImplemented()
+        camera_id = request.match_info['camera_id']
+
+        mm = request.app[KEY_MM]
+        try:
+            camera = mm.cameras[camera_id]
+        except KeyError as e:
+            _LOGGER.error("Invalid cameraId: {}".format(camera_id))
+            raise HTTPBadRequest()
+
+        response = self.to_entity_repr(request, ["events"], path_params={"camera_id": camera_id})
+        for event in camera.recent_motion.values():
+            response["entities"].append(APICameraEventEntityView.to_link_repr(request, ["event"], ["item"],
+                                                                              path_params={"camera_id": event.camera_id,
+                                                                                           "event_id": event.id}))
+
+        return web.Response(text=json.dumps(response), content_type='application/json')
 
 
 class APICameraEventsTimelapseView(BaseAPIView):
@@ -362,7 +377,34 @@ class APICameraEventEntityView(BaseAPIView):
     description = "Returns the event specified by camera_id and event_id"
 
     async def get(self, request):
-        raise HTTPNotImplemented()
+        camera_id = request.match_info['camera_id']
+        event_id = request.match_info['event_id']
+
+        mm = request.app[KEY_MM]
+        try:
+            camera = mm.cameras[camera_id]
+            event = camera.recent_motion[event_id]
+        except KeyError as e:
+            _LOGGER.error("Invalid cameraId: {}".format(camera_id))
+            raise HTTPBadRequest()
+
+        response = self.to_entity_repr(request, ["event"], path_params={"camera_id": camera_id, "event_id": event_id})
+        response["properties"] = {
+            "eventId": event.id,
+            "cameraId": event.camera_id,
+            "startTime": event.start_time.strftime("%Y%m%d%H%M%S"),
+        }
+
+        if event.top_score_frame:
+            tsf = event.top_score_frame
+            response["entities"].append(
+                APICameraEventFrameView.to_link_repr(request, ["frame"],
+                                                     ["http://motion-monitor/rel/top-score-frame"],
+                                                     path_params={"camera_id": tsf.camera_id,
+                                                                  "event_id": tsf.event_id,
+                                                                  "timestamp": tsf.timestamp.strftime("%Y%m%d%H%M%S"),
+                                                                  "frame": tsf.frame_num}))
+        return web.Response(text=json.dumps(response), content_type='application/json')
 
     async def delete(self, request):
         raise HTTPNotImplemented()
