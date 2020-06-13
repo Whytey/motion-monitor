@@ -2,7 +2,7 @@ import logging
 from collections import OrderedDict
 from io import BytesIO
 
-from PIL import Image as PILImage
+from PIL import Image
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -20,15 +20,36 @@ class FixedSizeOrderedDict(OrderedDict):
                 self.popitem(False)
 
 
-def convert_image(frame, img_format: str, scale: float) -> bytes:
-    """Given an image file at a path, will return the bytes of that file.  If provided, will also scale
+def animate_frames(frames: [], scale: float) -> bytes:
+    images = []
+    for frame in frames:
+        _LOGGER.debug("Working through ".format(frame))
+        path = frame.filename
+
+        with open(path, "rb") as image_file:
+            im = Image.open(image_file)
+            if scale:
+                _LOGGER.debug("Scaling the image")
+                (width, height) = (int(im.width * scale), int(im.height * scale))
+                _LOGGER.debug("Original size is {}wx{}h, new size is {}wx{}h".format(im.width, im.height,
+                                                                                     width, height))
+                im = im.resize([width, height])
+            images.append(im)
+    animated_img = BytesIO()
+    im = Image.new('RGB', (width, height))
+    im.save(animated_img, format="GIF", save_all=True, append_images=images, optimize=False, duration=10, loop=0)
+    return animated_img.getvalue()
+
+
+def convert_frames(frame, img_format: str, scale: float) -> bytes:
+    """Given an Frame object, will return the bytes of that Frame's file.  If provided, will also scale
     the size of the image and convert to the required format.
     """
 
     path = frame.filename
 
     with open(path, "rb") as image_file:
-        im = PILImage.open(image_file)
+        im = Image.open(image_file)
         converted_img = BytesIO()
         if scale:
             _LOGGER.debug("Scaling the image")
@@ -36,5 +57,4 @@ def convert_image(frame, img_format: str, scale: float) -> bytes:
             _LOGGER.debug("Original size is {}wx{}h, new size is {}wx{}h".format(im.width, im.height, width, height))
             im = im.resize([width, height])
         im.save(converted_img, img_format)
-        file_bytes = converted_img.getvalue()
-        return file_bytes
+        return converted_img.getvalue()

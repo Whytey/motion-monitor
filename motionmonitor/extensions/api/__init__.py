@@ -9,7 +9,7 @@ from aiohttp.web_exceptions import HTTPBadRequest, HTTPNotImplemented
 from motionmonitor.const import KEY_MM
 from motionmonitor.extensions.api.siren import Entity, EmbeddedRepresentationSubEntity
 from motionmonitor.models import Frame, EventFrame
-from motionmonitor.utils import convert_image
+from motionmonitor.utils import convert_frames, animate_frames
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -164,11 +164,11 @@ class APIImageView(BaseAPIView):
                 raise HTTPBadRequest()
         return img_format
 
-    def _send_response(self, request, img_format: str, scale: float, frame: Frame, frame_params: dict,
-                       self_view: BaseAPIView) -> web.Response:
+    def _create_response(self, request, img_format: str, scale: float, frame: Frame, frame_params: dict,
+                         self_view: BaseAPIView) -> web.Response:
         _LOGGER.debug(frame_params)
         if img_format == "JSON":
-            img_bytes = convert_image(frame, "JPEG", scale)
+            img_bytes = convert_frames(frame, "JPEG", scale)
 
             response = self_view.to_entity_repr(request, ["frame"], path_params=frame_params)
             response["properties"] = frame_params.copy()
@@ -181,7 +181,7 @@ class APIImageView(BaseAPIView):
 
             return web.Response(text=json.dumps(response), content_type='application/json')
         else:
-            img_bytes = convert_image(frame, img_format, scale)
+            img_bytes = convert_frames(frame, img_format, scale)
             return web.Response(body=img_bytes, content_type="image/{}".format(img_format))
 
 
@@ -331,7 +331,7 @@ class APICameraSnapshotFrameView(APIImageView):
             "frame": frame_num
         }
 
-        return self._send_response(request, img_format, scale, frame, frame_params, self)
+        return self._create_response(request, img_format, scale, frame, frame_params, self)
 
     async def delete(self, request):
         camera_id = request.match_info['camera_id']
@@ -341,13 +341,14 @@ class APICameraSnapshotFrameView(APIImageView):
         return web.Response(text=json.dumps(response), content_type='application/json')
 
 
-class APICameraSnapshotTimelapseView(BaseAPIView):
+class APICameraSnapshotTimelapseView(APIImageView):
     url = "/cameras/{camera_id}/snapshots/timelapse"
     name = "api:camera-snapshot-timelapse"
     description = "Returns the snapshots that make up a timelapse for the specified camera_id"
 
     async def get(self, request):
         camera_id = request.match_info['camera_id']
+        scale = self._get_scale_param(request)
 
         mm = request.app[KEY_MM]
         try:
@@ -356,7 +357,8 @@ class APICameraSnapshotTimelapseView(BaseAPIView):
             _LOGGER.error("Invalid cameraId: {}".format(camera_id))
             raise HTTPBadRequest()
 
-        raise HTTPNotImplemented()
+        animation_bytes = animate_frames(camera.recent_snapshots.values(), scale)
+        return web.Response(body=animation_bytes, content_type="image/gif")
 
 
 class APICameraEventsView(BaseAPIView):
@@ -493,7 +495,7 @@ class APICameraEventFrameView(APIImageView):
             "score": frame.score,
             "frame": frame_num
         }
-        return self._send_response(request, img_format, scale, frame, frame_params, self)
+        return self._create_response(request, img_format, scale, frame, frame_params, self)
 
     async def delete(self, request):
         raise HTTPNotImplemented()
