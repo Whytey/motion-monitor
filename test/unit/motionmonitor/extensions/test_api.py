@@ -9,7 +9,7 @@ from aiohttp.test_utils import make_mocked_request
 
 from motionmonitor.config import ConfigReader
 from motionmonitor.const import KEY_MM
-from motionmonitor.extensions.api import API, APICameraSnapshotsView, APICamerasView, APICameraEntityView, \
+from motionmonitor.extensions.api import API, APICameraSnapshotsFramesView, APICamerasView, APICameraEntityView, \
     APICameraSnapshotFrameView
 from motionmonitor.models import Camera, Frame
 from test.unit.utils import create_image_file
@@ -99,11 +99,11 @@ class TestAPICameraSnapshotsView(unittest.TestCase):
         mm.loop = self.loop
         mm.cameras = {CAMERA_ID: self.camera}
 
-        self.request = make_mocked_request("GET", APICameraSnapshotsView.url, match_info={"camera_id": CAMERA_ID})
+        self.request = make_mocked_request("GET", APICameraSnapshotsFramesView.url, match_info={"camera_id": CAMERA_ID})
         self.request.app[KEY_MM] = mm
 
     def test_simple(self):
-        response = self.loop.run_until_complete(APICameraSnapshotsView().get(self.request))
+        response = self.loop.run_until_complete(APICameraSnapshotsFramesView().get(self.request))
 
         self.assertEqual(200, response.status)
         self.assertEqual("application/json", response.content_type)
@@ -114,7 +114,7 @@ class TestAPICameraSnapshotsView(unittest.TestCase):
         f = Frame(self.camera, datetime.now(), 1, "filename2")
         self.camera.append_snapshot_frame(f)
 
-        response = self.loop.run_until_complete(APICameraSnapshotsView().get(self.request))
+        response = self.loop.run_until_complete(APICameraSnapshotsFramesView().get(self.request))
 
         self.assertEqual(200, response.status)
         self.assertEqual("application/json", response.content_type)

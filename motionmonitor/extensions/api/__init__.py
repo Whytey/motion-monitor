@@ -8,7 +8,7 @@ from aiohttp.web_exceptions import HTTPBadRequest, HTTPNotImplemented
 
 from motionmonitor.const import KEY_MM
 from motionmonitor.extensions.api.siren import Entity, EmbeddedRepresentationSubEntity
-from motionmonitor.models import Frame
+from motionmonitor.models import Frame, EventFrame
 from motionmonitor.utils import convert_image
 
 _LOGGER = logging.getLogger(__name__)
@@ -45,15 +45,17 @@ class API:
         self.register_view(APIRootView)
         self.register_view(APICamerasView)
         self.register_view(APICameraEntityView)
-        self.register_view(APICameraSnapshotsView)
+        self.register_view(APICameraSnapshotsFramesView)
         self.register_view(APICameraSnapshotFrameView)
         self.register_view(APICameraSnapshotTimelapseView)
         self.register_view(APICameraEventsView)
         self.register_view(APICameraEventsTimelapseView)
         self.register_view(APICameraEventEntityView)
+        self.register_view(APICameraEventFramesView)
         self.register_view(APICameraEventFrameView)
         self.register_view(APICameraEventTimelapseView)
         self.register_view(APIJobsView)
+        self.register_view(APIJobEntityView)
 
         # Prevent the router from getting frozen so that extensions are able to add new routes, even after
         # the server has started.  Inspired by Home-Assistant code (https://github.com/home-assistant).
@@ -89,7 +91,7 @@ class API:
         if not hasattr(view, "description"):
             raise AttributeError(f'{class_name} missing required attribute "description"')
 
-        view.register(self.app, self.app.router)
+        view.register(self.app.router)
         _LOGGER.debug("View '{}' has been registered.".format(view.name))
 
 
@@ -101,7 +103,7 @@ class BaseAPIView:
     description = None
     extra_urls = []
 
-    def register(self, app, router):
+    def register(self, router):
         """Register the view with a router."""
         _LOGGER.debug("Attempting to register our view")
 
@@ -131,11 +133,56 @@ class BaseAPIView:
 
     @classmethod
     def to_link_repr(cls, request, classes=[], rel=[], path_params={}, query_params={}):
+        _LOGGER.debug(cls.name)
         return {
             "class": classes,
             "rel": rel,
             "href": str(request.app.router[cls.name].url_for(**path_params).with_query(query_params))
         }
+
+
+class APIImageView(BaseAPIView):
+    def _get_scale_param(self, request):
+        scale = None
+        if "scale" in request.query:
+            scale = request.query["scale"]
+            _LOGGER.debug("Need to scale: {}".format(scale))
+            try:
+                scale = float(scale)
+            except ValueError:
+                _LOGGER.error("Scale is not a float: {}".format(scale))
+                raise HTTPBadRequest()
+        return scale
+
+    def _get_format_param(self, request):
+        img_format = "JSON"
+        if "format" in request.query:
+            img_format = request.query["format"]
+            _LOGGER.debug("Need to format: {}".format(img_format))
+            if img_format.upper() not in ["JPEG", "PNG", "GIF", "BMP"]:
+                _LOGGER.error("Format is not a recognised option: {}".format(img_format))
+                raise HTTPBadRequest()
+        return img_format
+
+    def _send_response(self, request, img_format: str, scale: float, frame: Frame, frame_params: dict,
+                       self_view: BaseAPIView) -> web.Response:
+        _LOGGER.debug(frame_params)
+        if img_format == "JSON":
+            img_bytes = convert_image(frame, "JPEG", scale)
+
+            response = self_view.to_entity_repr(request, ["frame"], path_params=frame_params)
+            response["properties"] = frame_params.copy()
+            response["properties"]["jpegBytes"] = base64.b64encode(img_bytes).decode('ascii'),
+
+            response["links"].append(self_view.to_link_repr(request, rel=["jpeg"], path_params=frame_params,
+                                                            query_params={"format": "jpeg"}))
+            response["links"].append(self_view.to_link_repr(request, rel=["jpeg-thumbnail"], path_params=frame_params,
+                                                            query_params={"format": "jpeg", "scale": "0.2"}))
+
+            return web.Response(text=json.dumps(response), content_type='application/json')
+        else:
+            img_bytes = convert_image(frame, img_format, scale)
+            return web.Response(body=img_bytes, content_type="image/{}".format(img_format))
 
 
 class APIRootView(BaseAPIView):
@@ -169,10 +216,10 @@ class APICamerasView(BaseAPIView):
         mm = request.app[KEY_MM]
         response = self.to_entity_repr(request, ["cameras"])
         for camera_id in mm.cameras:
-            camera = mm.cameras[camera_id]
-            camera_resp = APICameraEntityView.to_link_repr(request, [], ["item"], {"camera_id": camera_id})
-            camera_resp["rel"].append("item")
-            response["entities"].append(camera_resp)
+            response["entities"].append(APICameraEntityView.to_link_repr(request,
+                                                                         ["camera"],
+                                                                         ["item"],
+                                                                         {"camera_id": camera_id}))
         return web.Response(text=json.dumps(response), content_type='application/json')
 
 
@@ -190,7 +237,7 @@ class APICameraEntityView(BaseAPIView):
         mm = request.app[KEY_MM]
         try:
             camera = mm.cameras[camera_id]
-        except KeyError as e:
+        except KeyError:
             _LOGGER.error("Invalid cameraId: {}".format(camera_id))
             raise HTTPBadRequest()
 
@@ -212,9 +259,9 @@ class APICameraEntityView(BaseAPIView):
 
         # The recent-snapshots sub-entity
         response["entities"].append(
-            APICameraSnapshotsView.to_link_repr(request, ["frames"],
-                                                rel=["http://motion-monitor/rel/recent-snapshots"],
-                                                path_params={"camera_id": camera_id}))
+            APICameraSnapshotsFramesView.to_link_repr(request, ["frames"],
+                                                      rel=["http://motion-monitor/rel/recent-snapshots"],
+                                                      path_params={"camera_id": camera_id}))
 
         # The recent motion sub-entity
         response["entities"].append(
@@ -224,10 +271,10 @@ class APICameraEntityView(BaseAPIView):
         return web.Response(text=json.dumps(response), content_type='application/json')
 
 
-class APICameraSnapshotsView(BaseAPIView):
+class APICameraSnapshotsFramesView(BaseAPIView):
     url = "/cameras/{camera_id}/snapshots"
-    name = "api:camera-snapshots"
-    description = "Lists the snapshots related to this camera_id"
+    name = "api:camera-snapshot-frames"
+    description = "Lists the snapshot frames related to this camera_id"
 
     async def get(self, request):
         camera_id = request.match_info['camera_id']
@@ -235,7 +282,7 @@ class APICameraSnapshotsView(BaseAPIView):
         mm = request.app[KEY_MM]
         try:
             camera = mm.cameras[camera_id]
-        except KeyError as e:
+        except KeyError:
             _LOGGER.error("Invalid cameraId: {}".format(camera_id))
             raise HTTPBadRequest()
 
@@ -257,7 +304,7 @@ class APICameraSnapshotsView(BaseAPIView):
         return web.Response(text=json.dumps(response), content_type='application/json')
 
 
-class APICameraSnapshotFrameView(BaseAPIView):
+class APICameraSnapshotFrameView(APIImageView):
     url = "/cameras/{camera_id}/snapshots/{timestamp}/{frame}"
     name = "api:camera-snapshot-frame"
     description = "Returns the snapshot frame for the specified camera_id, timestamp and frame"
@@ -265,61 +312,26 @@ class APICameraSnapshotFrameView(BaseAPIView):
     async def get(self, request):
         camera_id = request.match_info['camera_id']
         timestamp = datetime.strptime(request.match_info['timestamp'], "%Y%m%d%H%M%S")
-        frame = request.match_info['frame']
+        frame_num = request.match_info['frame']
 
-        scale = None
-        if "scale" in request.query:
-            scale = request.query["scale"]
-            _LOGGER.debug("Need to scale: {}".format(scale))
-            try:
-                scale = float(scale)
-            except ValueError:
-                _LOGGER.error("Scale is not a float: {}".format(scale))
-                raise HTTPBadRequest()
-
-        img_format = "JSON"
-        if "format" in request.query:
-            img_format = request.query["format"]
-            _LOGGER.debug("Need to format: {}".format(img_format))
-            if img_format.upper() not in ["JPEG", "PNG", "GIF", "BMP"]:
-                _LOGGER.error("Format is not a recognised option: {}".format(img_format))
-                raise HTTPBadRequest()
+        scale = self._get_scale_param(request)
+        img_format = self._get_format_param(request)
 
         mm = request.app[KEY_MM]
         try:
             camera = mm.cameras[camera_id]
-            snapshot = camera.recent_snapshots[Frame.create_id(timestamp, frame)]
-        except KeyError as e:
+            frame = camera.recent_snapshots[Frame.create_id(timestamp, frame_num)]
+        except KeyError:
             _LOGGER.error("Invalid cameraId: {}".format(camera_id))
             raise HTTPBadRequest()
 
-        if img_format == "JSON":
-            img_bytes = convert_image(snapshot, "JPEG", scale)
+        frame_params = {
+            "camera_id": camera_id,
+            "timestamp": timestamp.strftime("%Y%m%d%H%M%S"),
+            "frame": frame_num
+        }
 
-            snapshot_params = {
-                "camera_id": camera_id,
-                "timestamp": timestamp.strftime("%Y%m%d%H%M%S"),
-                "frame": frame
-            }
-
-            response = self.to_entity_repr(request, ["frame"], path_params=snapshot_params)
-            response["properties"] = {
-                "cameraId": camera_id,
-                "timestamp": timestamp.strftime("%Y%m%d%H%M%S"),
-                "frame": frame,
-                "filename": snapshot.filename,
-                "jpegBytes": base64.b64encode(img_bytes).decode('ascii'),
-            }
-
-            response["links"].append(self.to_link_repr(request, rel=["jpeg"], path_params=snapshot_params,
-                                                       query_params={"format": "jpeg"}))
-            response["links"].append(self.to_link_repr(request, rel=["jpeg-thumbnail"], path_params=snapshot_params,
-                                                       query_params={"format": "jpeg", "scale": "0.2"}))
-
-            return web.Response(text=json.dumps(response), content_type='application/json')
-        else:
-            img_bytes = convert_image(snapshot, img_format, scale)
-            return web.Response(body=img_bytes, content_type="image/{}".format(img_format))
+        return self._send_response(request, img_format, scale, frame, frame_params, self)
 
     async def delete(self, request):
         camera_id = request.match_info['camera_id']
@@ -335,6 +347,15 @@ class APICameraSnapshotTimelapseView(BaseAPIView):
     description = "Returns the snapshots that make up a timelapse for the specified camera_id"
 
     async def get(self, request):
+        camera_id = request.match_info['camera_id']
+
+        mm = request.app[KEY_MM]
+        try:
+            camera = mm.cameras[camera_id]
+        except KeyError:
+            _LOGGER.error("Invalid cameraId: {}".format(camera_id))
+            raise HTTPBadRequest()
+
         raise HTTPNotImplemented()
 
 
@@ -349,7 +370,7 @@ class APICameraEventsView(BaseAPIView):
         mm = request.app[KEY_MM]
         try:
             camera = mm.cameras[camera_id]
-        except KeyError as e:
+        except KeyError:
             _LOGGER.error("Invalid cameraId: {}".format(camera_id))
             raise HTTPBadRequest()
 
@@ -384,7 +405,7 @@ class APICameraEventEntityView(BaseAPIView):
         try:
             camera = mm.cameras[camera_id]
             event = camera.recent_motion[event_id]
-        except KeyError as e:
+        except KeyError:
             _LOGGER.error("Invalid cameraId: {}".format(camera_id))
             raise HTTPBadRequest()
 
@@ -404,19 +425,75 @@ class APICameraEventEntityView(BaseAPIView):
                                                                   "event_id": tsf.event_id,
                                                                   "timestamp": tsf.timestamp.strftime("%Y%m%d%H%M%S"),
                                                                   "frame": tsf.frame_num}))
+        response["entities"].append(APICameraEventFramesView.to_link_repr(request, ["frames"],
+                                                                          ["http://motion-monitor/rel/frames"],
+                                                                          path_params={"camera_id": camera_id,
+                                                                                       "event_id": event_id}))
         return web.Response(text=json.dumps(response), content_type='application/json')
 
     async def delete(self, request):
         raise HTTPNotImplemented()
 
 
-class APICameraEventFrameView(BaseAPIView):
-    url = "/cameras/{camera_id}/events/{event_id}/{timestamp}/{frame}"
+class APICameraEventFramesView(APIImageView):
+    url = "/cameras/{camera_id}/events/{event_id}/frames"
+    name = "api:camera-event-frames"
+    description = "Returns a frames from an event as specified by camera_id, event_id"
+
+    async def get(self, request):
+        camera_id = request.match_info['camera_id']
+        event_id = request.match_info['event_id']
+
+        mm = request.app[KEY_MM]
+        try:
+            camera = mm.cameras[camera_id]
+            event = camera.recent_motion[event_id]
+        except KeyError:
+            _LOGGER.error("Invalid cameraId: {}".format(camera_id))
+            raise HTTPBadRequest()
+
+        response = self.to_entity_repr(request, ["frames"], path_params={"camera_id": camera_id, "event_id": event_id})
+        for frame in event.frames.values():
+            response["entities"].append(APICameraEventFrameView.to_link_repr(request, ["frame"],
+                                                                             ["http://motion-monitor/rel/event_frame"],
+                                                                             path_params={"camera_id": frame.camera_id,
+                                                                                          "event_id": frame.event_id,
+                                                                                          "timestamp": frame.timestamp.strftime("%Y%m%d%H%M%S"),
+                                                                                          "frame": frame.frame_num}))
+
+        return web.Response(text=json.dumps(response), content_type='application/json')
+
+
+class APICameraEventFrameView(APIImageView):
+    url = "/cameras/{camera_id}/events/{event_id}/frames/{timestamp}/{frame}"
     name = "api:camera-event-frame"
     description = "Returns a frame from an event as specified by camera_id, event_id, timestamp and frame"
 
     async def get(self, request):
-        raise HTTPNotImplemented()
+        camera_id = request.match_info['camera_id']
+        event_id = request.match_info['event_id']
+        timestamp = datetime.strptime(request.match_info['timestamp'], "%Y%m%d%H%M%S")
+        frame_num = request.match_info['frame']
+
+        scale = self._get_scale_param(request)
+        img_format = self._get_format_param(request)
+
+        mm = request.app[KEY_MM]
+        try:
+            camera = mm.cameras[camera_id]
+            frame = camera.recent_motion[event_id].frames[EventFrame.create_id(timestamp, frame_num)]
+        except KeyError:
+            _LOGGER.error("Invalid cameraId: {}".format(camera_id))
+            raise HTTPBadRequest()
+
+        frame_params = {
+            "camera_id": camera_id,
+            "event_id": frame.event_id,
+            "timestamp": timestamp.strftime("%Y%m%d%H%M%S"),
+            "score": frame.score,
+            "frame": frame_num
+        }
+        return self._send_response(request, img_format, scale, frame, frame_params, self)
 
     async def delete(self, request):
         raise HTTPNotImplemented()

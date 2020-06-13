@@ -1,5 +1,5 @@
 import logging
-from collections import deque
+from collections import OrderedDict
 
 from motionmonitor.utils import FixedSizeOrderedDict
 
@@ -80,7 +80,7 @@ class Event:
         self._camera_id = camera_id
         self._start_time = start_time
         self._top_score_frame = None
-        self._frames = []
+        self._frames = OrderedDict()
 
     def __str__(self):
         return "%s for camera %s" % (self._event_id, self._camera_id)
@@ -101,6 +101,10 @@ class Event:
     def top_score_frame(self):
         return self._top_score_frame
 
+    @property
+    def frames(self):
+        return self._frames
+
     def append_frame(self, event_frame):
         self.__logger.debug("Got a new event frame: {}".format(event_frame))
         # See if this is the highest scoring frame
@@ -109,7 +113,7 @@ class Event:
             self.__logger.debug("It's a new top score")
             self._top_score_frame = event_frame
         # Keep track of all the frames in this event
-        self._frames.append(event_frame)
+        self._frames[EventFrame.create_id(event_frame.timestamp, event_frame.frame_num)] = event_frame
 
     def to_json(self, extended=False):
         self.__logger.debug("Getting JSON")
