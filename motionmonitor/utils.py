@@ -20,16 +20,18 @@ class FixedSizeOrderedDict(OrderedDict):
                 self.popitem(False)
 
 
-def animate_frames(frames: [], scale: float) -> bytes:
+def animate_frames(frames: [], scale=None) -> bytes:
+    _LOGGER.debug("Have {} frames to animate.".format(len(frames)))
     images = []
     for frame in frames:
-        _LOGGER.debug("Working through ".format(frame))
+        _LOGGER.debug("Working through {}".format(frame))
         path = frame.filename
 
         with open(path, "rb") as image_file:
             im = Image.open(image_file)
+            im.load()
+            (width, height) = (im.width, im.height)
             if scale:
-                _LOGGER.debug("Scaling the image")
                 (width, height) = (int(im.width * scale), int(im.height * scale))
                 _LOGGER.debug("Original size is {}wx{}h, new size is {}wx{}h".format(im.width, im.height,
                                                                                      width, height))
@@ -41,7 +43,7 @@ def animate_frames(frames: [], scale: float) -> bytes:
     return animated_img.getvalue()
 
 
-def convert_frames(frame, img_format: str, scale: float) -> bytes:
+def convert_frames(frame, img_format: str, scale=None) -> bytes:
     """Given an Frame object, will return the bytes of that Frame's file.  If provided, will also scale
     the size of the image and convert to the required format.
     """

@@ -45,7 +45,7 @@ class API:
         self.register_view(APIRootView)
         self.register_view(APICamerasView)
         self.register_view(APICameraEntityView)
-        self.register_view(APICameraSnapshotsFramesView)
+        self.register_view(APICameraSnapshotFramesView)
         self.register_view(APICameraSnapshotFrameView)
         self.register_view(APICameraSnapshotTimelapseView)
         self.register_view(APICameraEventsView)
@@ -259,9 +259,9 @@ class APICameraEntityView(BaseAPIView):
 
         # The recent-snapshots sub-entity
         response["entities"].append(
-            APICameraSnapshotsFramesView.to_link_repr(request, ["frames"],
-                                                      rel=["http://motion-monitor/rel/recent-snapshots"],
-                                                      path_params={"camera_id": camera_id}))
+            APICameraSnapshotFramesView.to_link_repr(request, ["frames"],
+                                                     rel=["http://motion-monitor/rel/recent-snapshots"],
+                                                     path_params={"camera_id": camera_id}))
 
         # The recent motion sub-entity
         response["entities"].append(
@@ -271,7 +271,7 @@ class APICameraEntityView(BaseAPIView):
         return web.Response(text=json.dumps(response), content_type='application/json')
 
 
-class APICameraSnapshotsFramesView(BaseAPIView):
+class APICameraSnapshotFramesView(BaseAPIView):
     url = "/cameras/{camera_id}/snapshots"
     name = "api:camera-snapshot-frames"
     description = "Lists the snapshot frames related to this camera_id"
@@ -455,12 +455,18 @@ class APICameraEventFramesView(APIImageView):
             raise HTTPBadRequest()
 
         response = self.to_entity_repr(request, ["frames"], path_params={"camera_id": camera_id, "event_id": event_id})
+        response["links"].append(APICameraEventTimelapseView.to_link_repr(request,
+                                                                          rel=["timelapse"],
+                                                                          path_params={"camera_id": camera_id,
+                                                                                       "event_id": event_id}))
+
         for frame in event.frames.values():
             response["entities"].append(APICameraEventFrameView.to_link_repr(request, ["frame"],
                                                                              ["http://motion-monitor/rel/event_frame"],
                                                                              path_params={"camera_id": frame.camera_id,
                                                                                           "event_id": frame.event_id,
-                                                                                          "timestamp": frame.timestamp.strftime("%Y%m%d%H%M%S"),
+                                                                                          "timestamp": frame.timestamp.strftime(
+                                                                                              "%Y%m%d%H%M%S"),
                                                                                           "frame": frame.frame_num}))
 
         return web.Response(text=json.dumps(response), content_type='application/json')
@@ -501,13 +507,26 @@ class APICameraEventFrameView(APIImageView):
         raise HTTPNotImplemented()
 
 
-class APICameraEventTimelapseView(BaseAPIView):
+class APICameraEventTimelapseView(APIImageView):
     url = "/cameras/{camera_id}/events/{event_id}/timelapse"
     name = "api:camera-event-timelapse"
     description = "Returns the frames that make up a timelapse of the event specified by camera_id and event_id"
 
     async def get(self, request):
-        raise HTTPNotImplemented()
+        camera_id = request.match_info['camera_id']
+        event_id = request.match_info['event_id']
+        scale = self._get_scale_param(request)
+
+        mm = request.app[KEY_MM]
+        try:
+            camera = mm.cameras[camera_id]
+            event = camera.recent_motion[event_id]
+        except KeyError:
+            _LOGGER.error("Invalid cameraId: {}".format(camera_id))
+            raise HTTPBadRequest()
+
+        animation_bytes = animate_frames(event.frames.values(), scale)
+        return web.Response(body=animation_bytes, content_type="image/gif")
 
 
 class APIJobsView(BaseAPIView):
