@@ -36,6 +36,10 @@ class Frame:
     def create_id(timestamp, frame_num):
         return "{}_{}".format(timestamp.strftime("%Y%m%d%H%M%S"), frame_num)
 
+    def __repr__(self):
+        return (f'{self.__class__.__name__}('
+                f'{self.camera_id!r}, {self.timestamp!r})')
+
     def to_json(self):
         self.__logger.debug("Getting JSON")
         json_str = {"cameraId": self._camera_id,

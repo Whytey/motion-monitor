@@ -378,6 +378,9 @@ class APICameraEventsView(BaseAPIView):
             raise HTTPBadRequest()
 
         response = self.to_entity_repr(request, ["events"], path_params={"camera_id": camera_id})
+        response["links"].append(APICameraEventsTimelapseView.to_link_repr(request,
+                                                                           rel=["timelapse"],
+                                                                           path_params={"camera_id": camera_id}))
         for event in camera.recent_motion.values():
             response["entities"].append(APICameraEventEntityView.to_link_repr(request, ["event"], ["item"],
                                                                               path_params={"camera_id": event.camera_id,
@@ -386,7 +389,7 @@ class APICameraEventsView(BaseAPIView):
         return web.Response(text=json.dumps(response), content_type='application/json')
 
 
-class APICameraEventsTimelapseView(BaseAPIView):
+class APICameraEventsTimelapseView(APIImageView):
     url = "/cameras/{camera_id}/events/timelapse"
     name = "api:camera-events-timelapse"
     description = "Returns the frames that make up a timelapse of the events for the specified camera_id"
@@ -405,10 +408,11 @@ class APICameraEventsTimelapseView(BaseAPIView):
         frames = []
         # iterate every event, find the highest ranking frames from each, keep them in order.
         for event in camera.recent_motion.values():
-            high_score_frames = deque(20)
-            for frame in event.frames:
+            high_score_frames = deque(maxlen=20)
+            for frame in event.frames.values():
                 if len(high_score_frames) == 0 or frame.score > high_score_frames[0]:
                     high_score_frames.append(frame)
+            _LOGGER.debug("Have these high-score-frames: {}".format(high_score_frames))
             frames.extend(high_score_frames)
 
         animation_bytes = animate_frames(frames, scale)
