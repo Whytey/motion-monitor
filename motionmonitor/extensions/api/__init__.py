@@ -1,6 +1,7 @@
 import base64
 import json
 import logging
+from collections import deque
 from datetime import datetime
 
 from aiohttp import web
@@ -391,7 +392,27 @@ class APICameraEventsTimelapseView(BaseAPIView):
     description = "Returns the frames that make up a timelapse of the events for the specified camera_id"
 
     async def get(self, request):
-        raise HTTPNotImplemented()
+        camera_id = request.match_info['camera_id']
+        scale = self._get_scale_param(request)
+
+        mm = request.app[KEY_MM]
+        try:
+            camera = mm.cameras[camera_id]
+        except KeyError:
+            _LOGGER.error("Invalid cameraId: {}".format(camera_id))
+            raise HTTPBadRequest()
+
+        frames = []
+        # iterate every event, find the highest ranking frames from each, keep them in order.
+        for event in camera.recent_motion.values():
+            high_score_frames = deque(20)
+            for frame in event.frames:
+                if len(high_score_frames) == 0 or frame.score > high_score_frames[0]:
+                    high_score_frames.append(frame)
+            frames.extend(high_score_frames)
+
+        animation_bytes = animate_frames(frames, scale)
+        return web.Response(body=animation_bytes, content_type="image/gif")
 
 
 class APICameraEventEntityView(BaseAPIView):
