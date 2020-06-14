@@ -155,20 +155,20 @@ class APIImageView(BaseAPIView):
                 raise HTTPBadRequest()
         return scale
 
-    def _get_format_param(self, request):
-        img_format = "JSON"
+    def _get_format_param(self, request, default="JSON"):
+        img_format = default
         if "format" in request.query:
             img_format = request.query["format"]
             _LOGGER.debug("Need to format: {}".format(img_format))
-            if img_format.upper() not in ["JPEG", "PNG", "GIF", "BMP"]:
-                _LOGGER.error("Format is not a recognised option: {}".format(img_format))
-                raise HTTPBadRequest()
         return img_format
 
-    def _create_response(self, request, img_format: str, scale: float, frame: Frame, frame_params: dict,
-                         self_view: BaseAPIView) -> web.Response:
+    def _create_response(self, request, frame: Frame, frame_params: dict, self_view: BaseAPIView) -> web.Response:
         _LOGGER.debug(frame_params)
-        if img_format == "JSON":
+
+        scale = self._get_scale_param(request)
+        img_format = self._get_format_param(request)
+
+        if img_format.upper() == "JSON":
             img_bytes = convert_frames(frame, "JPEG", scale)
 
             response = self_view.to_entity_repr(request, ["frame"], path_params=frame_params)
@@ -182,8 +182,45 @@ class APIImageView(BaseAPIView):
 
             return web.Response(text=json.dumps(response), content_type='application/json')
         else:
+            if img_format.upper() not in ["JPEG", "PNG", "GIF", "BMP"]:
+                return HTTPBadRequest()
+
             img_bytes = convert_frames(frame, img_format, scale)
             return web.Response(body=img_bytes, content_type="image/{}".format(img_format))
+
+
+class APIVideoView(APIImageView):
+    async def _create_response(self, request, frames: [], self_view: BaseAPIView) -> web.Response:
+        scale = self._get_scale_param(request)
+        img_format = self._get_format_param(request, "GIF")
+
+        if img_format.upper() == "GIF":
+            animation_bytes = animate_frames(frames, scale)
+            return web.Response(body=animation_bytes, content_type="image/gif")
+
+        if img_format.upper() == "MJPEG":
+            my_boundary = 'some-boundary'
+            response = web.StreamResponse(
+                status=200,
+                reason='OK',
+                headers={
+                    'Content-Type': 'multipart/x-mixed-replace;boundary={}'.format(my_boundary)
+                }
+            )
+            await response.prepare(request)
+            for frame in frames:
+                img_bytes = convert_frames(frame, "JPEG", scale)
+
+                with web.MultipartWriter('image/jpeg', boundary=my_boundary) as mpwriter:
+                    mpwriter.append(img_bytes, {
+                        'Content-Type': 'image/jpeg'
+                    })
+                    await mpwriter.write(response, close_boundary=False)
+                await response.drain()
+            return response
+
+        _LOGGER.error("Format is not a recognised option: {}".format(img_format))
+        return HTTPBadRequest()
 
 
 class APIRootView(BaseAPIView):
@@ -315,9 +352,6 @@ class APICameraSnapshotFrameView(APIImageView):
         timestamp = datetime.strptime(request.match_info['timestamp'], "%Y%m%d%H%M%S")
         frame_num = request.match_info['frame']
 
-        scale = self._get_scale_param(request)
-        img_format = self._get_format_param(request)
-
         mm = request.app[KEY_MM]
         try:
             camera = mm.cameras[camera_id]
@@ -332,7 +366,7 @@ class APICameraSnapshotFrameView(APIImageView):
             "frame": frame_num
         }
 
-        return self._create_response(request, img_format, scale, frame, frame_params, self)
+        return self._create_response(request, frame, frame_params, self)
 
     async def delete(self, request):
         camera_id = request.match_info['camera_id']
@@ -342,14 +376,13 @@ class APICameraSnapshotFrameView(APIImageView):
         return web.Response(text=json.dumps(response), content_type='application/json')
 
 
-class APICameraSnapshotTimelapseView(APIImageView):
+class APICameraSnapshotTimelapseView(APIVideoView):
     url = "/cameras/{camera_id}/snapshots/timelapse"
     name = "api:camera-snapshot-timelapse"
     description = "Returns the snapshots that make up a timelapse for the specified camera_id"
 
     async def get(self, request):
         camera_id = request.match_info['camera_id']
-        scale = self._get_scale_param(request)
 
         mm = request.app[KEY_MM]
         try:
@@ -358,8 +391,7 @@ class APICameraSnapshotTimelapseView(APIImageView):
             _LOGGER.error("Invalid cameraId: {}".format(camera_id))
             raise HTTPBadRequest()
 
-        animation_bytes = animate_frames(camera.recent_snapshots.values(), scale)
-        return web.Response(body=animation_bytes, content_type="image/gif")
+        return await self._create_response(request, camera.recent_snapshots.values(), self)
 
 
 class APICameraEventsView(BaseAPIView):
@@ -389,14 +421,13 @@ class APICameraEventsView(BaseAPIView):
         return web.Response(text=json.dumps(response), content_type='application/json')
 
 
-class APICameraEventsTimelapseView(APIImageView):
+class APICameraEventsTimelapseView(APIVideoView):
     url = "/cameras/{camera_id}/events/timelapse"
     name = "api:camera-events-timelapse"
     description = "Returns the frames that make up a timelapse of the events for the specified camera_id"
 
     async def get(self, request):
         camera_id = request.match_info['camera_id']
-        scale = self._get_scale_param(request)
 
         mm = request.app[KEY_MM]
         try:
@@ -415,8 +446,7 @@ class APICameraEventsTimelapseView(APIImageView):
             _LOGGER.debug("Have these high-score-frames: {}".format(high_score_frames))
             frames.extend(high_score_frames)
 
-        animation_bytes = animate_frames(frames, scale)
-        return web.Response(body=animation_bytes, content_type="image/gif")
+        return await self._create_response(request, frames, self)
 
 
 class APICameraEventEntityView(BaseAPIView):
@@ -508,9 +538,6 @@ class APICameraEventFrameView(APIImageView):
         timestamp = datetime.strptime(request.match_info['timestamp'], "%Y%m%d%H%M%S")
         frame_num = request.match_info['frame']
 
-        scale = self._get_scale_param(request)
-        img_format = self._get_format_param(request)
-
         mm = request.app[KEY_MM]
         try:
             camera = mm.cameras[camera_id]
@@ -526,13 +553,13 @@ class APICameraEventFrameView(APIImageView):
             "score": frame.score,
             "frame": frame_num
         }
-        return self._create_response(request, img_format, scale, frame, frame_params, self)
+        return self._create_response(request, frame, frame_params, self)
 
     async def delete(self, request):
         raise HTTPNotImplemented()
 
 
-class APICameraEventTimelapseView(APIImageView):
+class APICameraEventTimelapseView(APIVideoView):
     url = "/cameras/{camera_id}/events/{event_id}/timelapse"
     name = "api:camera-event-timelapse"
     description = "Returns the frames that make up a timelapse of the event specified by camera_id and event_id"
@@ -540,7 +567,6 @@ class APICameraEventTimelapseView(APIImageView):
     async def get(self, request):
         camera_id = request.match_info['camera_id']
         event_id = request.match_info['event_id']
-        scale = self._get_scale_param(request)
 
         mm = request.app[KEY_MM]
         try:
@@ -550,8 +576,7 @@ class APICameraEventTimelapseView(APIImageView):
             _LOGGER.error("Invalid cameraId: {}".format(camera_id))
             raise HTTPBadRequest()
 
-        animation_bytes = animate_frames(event.frames.values(), scale)
-        return web.Response(body=animation_bytes, content_type="image/gif")
+        return await self._create_response(request, event.frames.values(), self)
 
 
 class APIJobsView(BaseAPIView):

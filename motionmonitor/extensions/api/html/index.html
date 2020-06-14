@@ -48,7 +48,7 @@
               // Check the content-type of the response, was it JSON or an image?
               var ct = xhr.getResponseHeader("content-type") || "";
               console.log(ct);
-              if (ct.indexOf('image') > -1) {
+              if (ct.indexOf('image') > -1 || ct.indexOf('multipart') > -1) {
                 // Got an image, set the URL, show the image and hide the JSON.
                 $("#imageDest").attr("src",url).show();
                 $("#jsonDest").hide();
