@@ -1,4 +1,4 @@
 Pillow==7.1.2
 mysqlclient==1.4.6
 aiohttp==3.6.2
-
+jsonschema==3.2.0

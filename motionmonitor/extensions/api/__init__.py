@@ -173,7 +173,7 @@ class APIImageView(BaseAPIView):
 
             response = self_view.to_entity_repr(request, ["frame"], path_params=frame_params)
             response["properties"] = frame_params.copy()
-            response["properties"]["jpegBytes"] = base64.b64encode(img_bytes).decode('ascii'),
+            response["properties"]["jpegBytes"] = base64.b64encode(img_bytes).decode('ascii')
 
             response["links"].append(self_view.to_link_repr(request, rel=["jpeg"], path_params=frame_params,
                                                             query_params={"format": "jpeg"}))
@@ -361,7 +361,7 @@ class APICameraSnapshotFrameView(APIImageView):
             raise HTTPBadRequest()
 
         frame_params = {
-            "camera_id": camera_id,
+            "cameraId": camera_id,
             "timestamp": timestamp.strftime("%Y%m%d%H%M%S"),
             "frame": frame_num
         }

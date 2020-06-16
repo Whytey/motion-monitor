@@ -1,23 +1,26 @@
 import asyncio
+import base64
 import json
 import logging
 import unittest
 from datetime import datetime
-from unittest.mock import Mock
+from unittest import mock
+from unittest.mock import Mock, ANY
 
+import aiohttp
+import jsonschema
 from aiohttp.test_utils import make_mocked_request
 
-from motionmonitor.config import ConfigReader
 from motionmonitor.const import KEY_MM
 from motionmonitor.extensions.api import API, APICameraSnapshotFramesView, APICamerasView, APICameraEntityView, \
     APICameraSnapshotFrameView
+from motionmonitor.extensions.api.schema import JSONSCHEMA
 from motionmonitor.models import Camera, Frame
-from test.unit.utils import create_image_file
 
 CAMERA_ID = "1"
 
 
-class TestAPIServer(unittest.TestCase):
+class TestAPIBase(unittest.TestCase):
     def setUp(self) -> None:
         logger = logging.getLogger('motionmonitor')
         logger.setLevel(logging.getLevelName("DEBUG"))
@@ -29,127 +32,179 @@ class TestAPIServer(unittest.TestCase):
         self.logger = logger
 
         self.loop = asyncio.new_event_loop()
+        self.mm = Mock()
+        self.mm.loop = self.loop
+        self.mm.cameras = {}
 
-        mm = Mock()
+    def add_camera(self, camera_id: str):
+        c = Camera(camera_id)
+        self.mm.cameras[camera_id] = c
+        return c
+
+    def add_frames(self, count: int, camera_id=CAMERA_ID, timestamp=datetime.now().strftime("%Y%m%d%H%M%S"),
+                   frame_num=None):
+        added_frames = []
+        for i in range(count):
+            f = Frame(camera_id, datetime.strptime(timestamp, "%Y%m%d%H%M%S"), frame_num if frame_num else i,
+                      "{}.jpeg".format(i))
+            self.mm.cameras[camera_id].append_snapshot_frame(f)
+            added_frames.append(f)
+        return added_frames
+
+    def is_valid_json(self, response):
+        self.assertEqual(200, response.status)
+        self.assertEqual("application/json", response.content_type)
+        json_data = json.loads(response.body)
+        jsonschema.validate(json_data, schema=JSONSCHEMA)
+        return json_data
+
+
+class TestAPIServer(TestAPIBase):
+    def setUp(self) -> None:
+        super().setUp()
         self.config = {"API": {"ADDRESS": "127.0.0.1", "PORT": "9999"}}
-
-        mm.config = self.config
-        mm.loop = self.loop
-
-        self.api = API(mm)
-
-        async def start_socket():
-            await self.api.start_extension()
-
-        self.loop.run_until_complete(start_socket())
+        self.mm.config = self.config
 
     def test_simple(self):
+        api = API(self.mm)
+        self.loop.run_until_complete(api.start_extension())
+
         # If the API has been started, it should be an attribute of the mm instance.
-        self.assertEqual(self.api, self.api.mm.api)
+        self.assertEqual(api, self.mm.api)
 
 
-class TestAPICamerasView(unittest.TestCase):
-
+class TestAPICamerasView(TestAPIBase):
     def setUp(self) -> None:
-        self.loop = asyncio.new_event_loop()
-
-        self.camera = Camera(CAMERA_ID)
-        mm = Mock()
-        mm.loop = self.loop
-        mm.cameras = {CAMERA_ID: self.camera}
-
+        super().setUp()
         self.request = make_mocked_request("GET", APICamerasView.url)
-        self.request.app[KEY_MM] = mm
+        self.request.app[KEY_MM] = self.mm
 
-    def test_simple(self):
+    def test_get_no_cameras(self):
         response = self.loop.run_until_complete(APICamerasView().get(self.request))
-        self.assertEqual(200, response.status)
-        self.assertEqual("application/json", response.content_type)
-        json_data = json.loads(response.body)
+        json_data = self.is_valid_json(response)
+        self.assertEqual(0, len(json_data["entities"]))
+
+    def test_get_one_camera(self):
+        self.add_camera(CAMERA_ID)
+        response = self.loop.run_until_complete(APICamerasView().get(self.request))
+        json_data = self.is_valid_json(response)
         self.assertEqual(1, len(json_data["entities"]))
-        self.assertIsNotNone(json_data["entities"][0]["href"])
 
 
-class TestAPICameraEntityView(unittest.TestCase):
+class TestAPICameraEntityView(TestAPIBase):
     def setUp(self) -> None:
-        self.loop = asyncio.new_event_loop()
-
-        self.camera = Camera(CAMERA_ID)
-        mm = Mock()
-        mm.loop = self.loop
-        mm.cameras = {CAMERA_ID: self.camera}
-
+        super().setUp()
         self.request = make_mocked_request("GET", APICameraEntityView.url, match_info={"camera_id": CAMERA_ID})
-        self.request.app[KEY_MM] = mm
+        self.request.app[KEY_MM] = self.mm
 
-    def test_simple(self):
+    def test_get_no_cameras(self):
+        with self.assertRaises(aiohttp.web_exceptions.HTTPBadRequest):
+            self.loop.run_until_complete(APICameraEntityView().get(self.request))
+
+    def test_get_one_camera(self):
+        self.add_camera(CAMERA_ID)
         response = self.loop.run_until_complete(APICameraEntityView().get(self.request))
-        self.assertEqual(200, response.status)
-        self.assertEqual("application/json", response.content_type)
-        json_data = json.loads(response.body)
+        json_data = self.is_valid_json(response)
         self.assertEqual(CAMERA_ID, json_data["properties"]["cameraId"])
 
+        # No frames added yet, should have snapshots and motion entities only.
+        self.assertEqual(2, len(json_data["entities"]))
 
-class TestAPICameraSnapshotsView(unittest.TestCase):
+        # Check the properties of the camera
+        self.assertEqual(CAMERA_ID, json_data["properties"]["cameraId"])
+        self.assertEqual(0, json_data["properties"]["state"])
+
+    def test_get_one_camera_with_frames(self):
+        self.add_camera(CAMERA_ID)
+        frames = self.add_frames(1, CAMERA_ID)
+        response = self.loop.run_until_complete(APICameraEntityView().get(self.request))
+        json_data = self.is_valid_json(response)
+
+        # Should also have a last-snapshot entity now, too.
+        self.assertEqual(3, len(json_data["entities"]))
+
+
+class TestAPICameraSnapshotFramesView(TestAPIBase):
     def setUp(self) -> None:
-        self.loop = asyncio.new_event_loop()
-
-        self.camera = Camera(CAMERA_ID)
-        mm = Mock()
-        mm.loop = self.loop
-        mm.cameras = {CAMERA_ID: self.camera}
-
+        super().setUp()
         self.request = make_mocked_request("GET", APICameraSnapshotFramesView.url, match_info={"camera_id": CAMERA_ID})
-        self.request.app[KEY_MM] = mm
+        self.request.app[KEY_MM] = self.mm
 
-    def test_simple(self):
+    def test_get_no_cameras(self):
+        with self.assertRaises(aiohttp.web_exceptions.HTTPBadRequest):
+            self.loop.run_until_complete(APICameraSnapshotFramesView().get(self.request))
+
+    def test_get_no_snapshots(self):
+        self.add_camera(CAMERA_ID)
         response = self.loop.run_until_complete(APICameraSnapshotFramesView().get(self.request))
 
-        self.assertEqual(200, response.status)
-        self.assertEqual("application/json", response.content_type)
-        json_data = json.loads(response.body)
+        json_data = self.is_valid_json(response)
         self.assertEqual(0, len(json_data["entities"]))
 
     def test_single_snapshot(self):
-        f = Frame(self.camera, datetime.now(), 1, "filename2")
-        self.camera.append_snapshot_frame(f)
+        self.add_camera(CAMERA_ID)
+        frames = self.add_frames(1, CAMERA_ID)
 
         response = self.loop.run_until_complete(APICameraSnapshotFramesView().get(self.request))
 
-        self.assertEqual(200, response.status)
-        self.assertEqual("application/json", response.content_type)
-        json_data = json.loads(response.body)
+        json_data = self.is_valid_json(response)
         self.assertEqual(1, len(json_data["entities"]))
 
 
-class TestAPICameraSnapshotEntityView(unittest.TestCase):
+class TestAPICameraSnapshotFrameView(TestAPIBase):
+    timestamp = "20200601120000"
+    frame_num = 1
+    mocked_bytes = b'12345'
+
     def setUp(self) -> None:
-        config = ConfigReader().read_config("motion-monitor.ini.test", False)
-        filename = config["GENERAL"]["TARGET_DIR"] + "TestFile.jpg"
-        create_image_file(filename)
-
-        self.loop = asyncio.new_event_loop()
-
-        self.camera = Camera(CAMERA_ID)
-        timestamp = datetime.now()
-        f = Frame(self.camera.id, timestamp, 1, filename)
-        self.camera.append_snapshot_frame(f)
-
-        mm = Mock()
-        mm.loop = self.loop
-        mm.cameras = {CAMERA_ID: self.camera}
-
+        super().setUp()
         self.request = make_mocked_request("GET", APICameraSnapshotFrameView.url, match_info={"camera_id": CAMERA_ID,
-                                                                                              "timestamp": timestamp.strftime(
-                                                                                                  "%Y%m%d%H%M%S"),
-                                                                                              "frame": 1})
-        self.request.app[KEY_MM] = mm
+                                                                                              "timestamp": self.timestamp,
+                                                                                              "frame": self.frame_num})
+        self.request.app[KEY_MM] = self.mm
 
-    def test_simple(self):
+    def test_get_no_cameras(self):
+        with self.assertRaises(aiohttp.web_exceptions.HTTPBadRequest):
+            self.loop.run_until_complete(APICameraSnapshotFrameView().get(self.request))
+
+    def test_get_no_snapshots(self):
+        self.add_camera(CAMERA_ID)
+        with self.assertRaises(aiohttp.web_exceptions.HTTPBadRequest):
+            self.loop.run_until_complete(APICameraSnapshotFrameView().get(self.request))
+
+    @mock.patch('motionmonitor.extensions.api.convert_frames')
+    def test_get_snapshot_as_json(self, mock_convert_frames):
+        mock_convert_frames.return_value = self.mocked_bytes
+        self.add_camera(CAMERA_ID)
+        self.add_frames(1, CAMERA_ID, self.timestamp, self.frame_num)
         response = self.loop.run_until_complete(APICameraSnapshotFrameView().get(self.request))
-        self.assertEqual(200, response.status)
-        self.assertEqual("application/json", response.content_type)
-        json_data = json.loads(response.body)
+        json_data = self.is_valid_json(response)
+
+        # The convert will have been called with defaults; JPEG and None
+        mock_convert_frames.assert_called_with(ANY, "JPEG", None)
+
+        # Confirm the properties of the JSON response
+        self.assertEqual(CAMERA_ID, json_data["properties"]["cameraId"])
+        self.assertEqual(self.timestamp, json_data["properties"]["timestamp"])
+        self.assertEqual(self.frame_num, json_data["properties"]["frame"])
+        self.assertEqual(base64.b64encode(self.mocked_bytes).decode('ascii'), json_data["properties"]["jpegBytes"])
+
+    @mock.patch('motionmonitor.extensions.api.convert_frames')
+    def test_get_snapshot_as_scaled_gif(self, mock_convert_frames):
+        mock_convert_frames.return_value = self.mocked_bytes
+        self.add_camera(CAMERA_ID)
+        self.add_frames(1, CAMERA_ID, self.timestamp, self.frame_num)
+
+        # Configure the URL query string
+        self.request = make_mocked_request("GET", APICameraSnapshotFrameView.url + "?format=GIF&scale=0.5",
+                                           match_info={"camera_id": CAMERA_ID,
+                                                       "timestamp": self.timestamp,
+                                                       "frame": self.frame_num})
+        self.request.app[KEY_MM] = self.mm
+
+        response = self.loop.run_until_complete(APICameraSnapshotFrameView().get(self.request))
+        # The convert will have been called with defaults; JPEG and None
+        mock_convert_frames.assert_called_with(ANY, "GIF", 0.5)
 
 
 if __name__ == '__main__':
