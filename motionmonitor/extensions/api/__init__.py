@@ -236,13 +236,14 @@ class APIRootView(BaseAPIView):
         }
 
         for route in request.app.router.routes():
-            entity = self.to_entity_repr(request, ["route"], rel=["item"])
+            entity = self.to_link_repr(request, ["route"], rel=["item"])
             entity["properties"] = {
                 "name": route.name,
                 "method": route.method,
                 "url": route.resource.canonical,
                 "description": "<str>"
             }
+            response["entities"].append(entity)
         return web.Response(text=json.dumps(response), content_type='application/json')
 
 
