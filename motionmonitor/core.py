@@ -6,7 +6,7 @@ from importlib import util
 
 import motionmonitor.cameramonitor
 import motionmonitor.config
-import extensions.mysql_db_server.__init__
+# import extensions.mysql_db_server.__init__
 from motionmonitor.const import (
     MATCH_ALL, EVENT_JOB, MAX_JOBQ_SIZE
 )

@@ -5,7 +5,7 @@ Created on 11/08/2013
 '''
 import logging
 
-from models import Camera, Event
+from motionmonitor.models import Camera, Event
 from motionmonitor.const import (
     EVENT_MOTION_EVENT_START,
     EVENT_MOTION_EVENT_END,

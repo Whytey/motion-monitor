@@ -4,7 +4,7 @@ import logging
 from collections import deque
 from datetime import datetime
 
-from aiohttp import web
+from aiohttp import web, MultipartWriter
 from aiohttp.web_exceptions import HTTPBadRequest, HTTPNotImplemented
 
 from motionmonitor.const import KEY_MM
@@ -198,8 +198,8 @@ class APIVideoView(APIImageView):
             animation_bytes = animate_frames(frames, scale)
             return web.Response(body=animation_bytes, content_type="image/gif")
 
-        if img_format.upper() == "MJPEG":
-            my_boundary = 'some-boundary'
+        elif img_format.upper() == "MJPEG":
+            my_boundary = 'motion-monitor-boundary'
             response = web.StreamResponse(
                 status=200,
                 reason='OK',
@@ -211,16 +211,16 @@ class APIVideoView(APIImageView):
             for frame in frames:
                 img_bytes = convert_frames(frame, "JPEG", scale)
 
-                with web.MultipartWriter('image/jpeg', boundary=my_boundary) as mpwriter:
+                with MultipartWriter('image/jpeg', boundary=my_boundary) as mpwriter:
                     mpwriter.append(img_bytes, {
                         'Content-Type': 'image/jpeg'
                     })
                     await mpwriter.write(response, close_boundary=False)
-                await response.drain()
+                await response.write_eof()
             return response
 
         _LOGGER.error("Format is not a recognised option: {}".format(img_format))
-        return HTTPBadRequest()
+        raise HTTPBadRequest()
 
 
 class APIRootView(BaseAPIView):
@@ -229,20 +229,21 @@ class APIRootView(BaseAPIView):
     description = "Describes the available API endpoints"
 
     async def get(self, request):
-        response = Entity(["route"])
-        response.set_property("application", "Motion Monitor")
-        response.set_property("version", 0.1)
-        response.append_link("self", self.url)
+        response = self.to_entity_repr(request, ["routes"])
+        response["properties"] = {
+            "application": "Motion Monitor",
+            "version": 0.1
+        }
+
         for route in request.app.router.routes():
-            entity = EmbeddedRepresentationSubEntity(["link"])
-            entity.set_property("name", route.name)
-            entity.set_property("method", route.method)
-            entity.set_property("url", route.resource.canonical)
-            entity.set_property("description", "<str>")
-            if route.method.upper() == "GET" and "{" not in route.resource.canonical:
-                entity.append_link("self", route.resource.canonical)
-            response.add_sub_entity(entity)
-        return web.Response(text=json.dumps(response.to_json()), content_type='application/json')
+            entity = self.to_entity_repr(request, ["route"], rel=["item"])
+            entity["properties"] = {
+                "name": route.name,
+                "method": route.method,
+                "url": route.resource.canonical,
+                "description": "<str>"
+            }
+        return web.Response(text=json.dumps(response), content_type='application/json')
 
 
 class APICamerasView(BaseAPIView):
@@ -369,11 +370,7 @@ class APICameraSnapshotFrameView(APIImageView):
         return self._create_response(request, frame, frame_params, self)
 
     async def delete(self, request):
-        camera_id = request.match_info['camera_id']
-        timestamp = request.match_info['timestamp']
-        frame = request.match_info['frame']
-        response = {"Message": "Not yet implemented"}
-        return web.Response(text=json.dumps(response), content_type='application/json')
+        raise web.HTTPNotImplemented()
 
 
 class APICameraSnapshotTimelapseView(APIVideoView):
@@ -547,8 +544,8 @@ class APICameraEventFrameView(APIImageView):
             raise HTTPBadRequest()
 
         frame_params = {
-            "camera_id": camera_id,
-            "event_id": frame.event_id,
+            "cameraId": camera_id,
+            "eventId": frame.event_id,
             "timestamp": timestamp.strftime("%Y%m%d%H%M%S"),
             "score": frame.score,
             "frame": frame_num
@@ -587,13 +584,10 @@ class APIJobsView(BaseAPIView):
     async def get(self, request):
         mm = request.app[KEY_MM]
         response = self.to_entity_repr(request, ["jobs"])
-        for job in mm.jobs:
+        for job in mm.jobs.values():
             response["entities"].append(APIJobEntityView.to_link_repr(request, ["job"],
                                                                       rel=["item"],
                                                                       path_params={"job_id": job.id}))
-            job_desc = {"jobId": job.id,
-                        "name": job.name}
-            response["jobs"].append(job_desc)
         return web.Response(text=json.dumps(response), content_type='application/json')
 
 
@@ -603,5 +597,4 @@ class APIJobEntityView(BaseAPIView):
     description = "Returns specified job."
 
     async def get(self, request):
-        response = self.to_entity_repr(request, ["job"])
-        return web.Response(text=json.dumps(response), content_type='application/json')
+        raise HTTPNotImplemented()
