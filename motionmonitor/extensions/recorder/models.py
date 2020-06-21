@@ -1,7 +1,16 @@
-import peewee
+import peewee as pw
+
+import motionmonitor
+
+proxy = pw.DatabaseProxy()
 
 
-class Event(peewee.Model):
+class BaseModel(pw.Model):
+    class Meta:
+        database = proxy
+
+
+class Event(BaseModel):
     # motion_event:
     # +------------+-------------+------+-----+---------+-------+
     # | Field      | Type        | Null | Key | Default | Extra |
@@ -11,16 +20,22 @@ class Event(peewee.Model):
     # | start_time | datetime    | NO   | MUL | NULL    |       |
     # +------------+-------------+------+-----+---------+-------+
 
-    event_id = peewee.CharField()
-    camera_id = peewee.CharField()
-    start_time = peewee.DateTimeField()
+    event_id = pw.CharField()
+    camera_id = pw.CharField()
+    start_time = pw.DateTimeField()
 
     class Meta:
-        database = None
-        db_table = "motion_event"
+        table_name = "motion_event"
+
+    @staticmethod
+    def from_native(event):
+        return Event.create(event_id=event.id, camera_id=event.camera_id, start_time=event.start_time)
+
+    def to_native(self) -> motionmonitor.models.Event:
+        return motionmonitor.models.Event(self.event_id, self.camera_id, self.start_time)
 
 
-class Frame(peewee.Model):
+class Frame(BaseModel):
     # snapshot_frame:
     # +-----------+--------------+------+-----+---------+-------+
     # | Field     | Type         | Null | Key | Default | Extra |
@@ -32,17 +47,17 @@ class Frame(peewee.Model):
     # | archive   | tinyint(1)   | YES  |     | NULL    |       |
     # +-----------+--------------+------+-----+---------+-------+
 
-    camera_id = peewee.CharField()
-    timestamp = peewee.DateTimeField()
-    frame = peewee.IntegerField()
-    filename = peewee.CharField()
-    archive = peewee.BooleanField()
+    camera_id = pw.CharField()
+    timestamp = pw.DateTimeField()
+    frame = pw.IntegerField()
+    filename = pw.CharField()
+    archive = pw.BooleanField()
 
     class Meta:
-        db_table = "snapshot_frame"
+        table_name = "snapshot_frame"
 
 
-class EventFrame(peewee.Model):
+class EventFrame(BaseModel):
     # motion_frame:
     # +-----------+--------------+------+-----+---------+-------+
     # | Field     | Type         | Null | Key | Default | Extra |
@@ -55,11 +70,11 @@ class EventFrame(peewee.Model):
     # | filename  | varchar(100) | YES  |     | NULL    |       |
     # +-----------+--------------+------+-----+---------+-------+
 
-    event_id = peewee.CharField()
-    camera_id = peewee.CharField()
-    timestamp = peewee.DateTimeField()
-    frame = peewee.IntegerField()
-    filename = peewee.CharField()
+    event_id = pw.CharField()
+    camera_id = pw.CharField()
+    timestamp = pw.DateTimeField()
+    frame = pw.IntegerField()
+    filename = pw.CharField()
 
     class Meta:
-        db_table = "motion_frame"
+        table_name = "motion_frame"
