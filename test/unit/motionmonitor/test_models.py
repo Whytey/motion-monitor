@@ -1,3 +1,4 @@
+import json
 import unittest
 from datetime import datetime
 
@@ -61,7 +62,7 @@ class TestCamera(unittest.TestCase):
         self.assertIsNone(c.last_snapshot)
         self.assertEqual(0, len(c.recent_motion))
 
-    def test_get_json(self):
+    def test_get_json_empty(self):
         import json
         c = Camera(CAMERA_ID)
         json_str = c.to_json()
@@ -74,16 +75,21 @@ class TestCamera(unittest.TestCase):
         self.assertIsNone(c.last_snapshot)
 
         # Add a snapshot frame
-        f1 = Frame(Camera, datetime.now(), 0, "filename1")
+        f1 = Frame(CAMERA_ID, datetime.now(), 0, "filename1")
         c.append_snapshot_frame(f1)
         self.assertEqual(f1, c.last_snapshot)
 
         # Add another snapshot frame
-        f2 = Frame(Camera, datetime.now(), 1, "filename2")
+        f2 = Frame(CAMERA_ID, datetime.now(), 1, "filename2")
         c.append_snapshot_frame(f2)
         self.assertEqual(f2, c.last_snapshot)
         self.assertNotEqual(f1, f2)
 
+        # Can we jsonify a camera with snapshots
+        json_str = c.to_json()
+        # Check it can be parsed as JSON
+        json_obj = json.dumps(json_str)
+        # self.assertIsNotNone(json_obj)
 
 
 if __name__ == '__main__':

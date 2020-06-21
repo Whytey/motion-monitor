@@ -5,7 +5,7 @@ Created on 11/08/2013
 '''
 import logging
 
-from models import Camera, Event
+from motionmonitor.models import Camera, Event
 from motionmonitor.const import (
     EVENT_MOTION_EVENT_START,
     EVENT_MOTION_EVENT_END,
@@ -50,14 +50,14 @@ class CameraMonitor():
             self.__create_camera(motion_frame.camera_id)
 
         if len(self.mm.cameras[motion_frame.camera_id].recent_motion) == 0 or \
-                self.mm.cameras[motion_frame.camera_id].recent_motion[0].event_id != motion_frame.event_id:
+                next(reversed(self.mm.cameras[motion_frame.camera_id].recent_motion.values())).id != motion_frame.event_id:
             self.__logger.warning(
                 "Must have missed the start event '{}', forcing creation".format(motion_frame.event_id))
             new_event = Event(motion_frame.event_id, motion_frame.camera_id, motion_frame.timestamp)
             self.__logger.info("Created new event: {}".format(new_event))
-            self.mm.cameras[motion_frame.camera_id].recent_motion.appendleft(new_event)
+            self.mm.cameras[motion_frame.camera_id].recent_motion[new_event.id] = new_event
 
-        self.mm.cameras[motion_frame.camera_id].recent_motion[0].append_frame(motion_frame)
+        next(reversed(self.mm.cameras[motion_frame.camera_id].recent_motion.values())).append_frame(motion_frame)
 
     def __create_camera(self, camera_id):
         self.__logger.info("Creating a new camera: {}".format(camera_id))

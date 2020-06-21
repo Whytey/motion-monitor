@@ -11,3 +11,5 @@ EVENT_MOTION_EVENT_START = "event:motion_event_start"
 EVENT_MOTION_EVENT_END = "event:motion_event_end"
 
 MAX_JOBQ_SIZE = 10
+
+KEY_MM = "key:motion-monitor"

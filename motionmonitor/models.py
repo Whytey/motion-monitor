@@ -1,5 +1,7 @@
 import logging
-from collections import deque
+from collections import OrderedDict
+
+from motionmonitor.utils import FixedSizeOrderedDict
 
 
 class Frame:
@@ -15,6 +17,10 @@ class Frame:
         return self._camera_id
 
     @property
+    def id(self):
+        return self.create_id(self._timestamp, self._frame_num)
+
+    @property
     def timestamp(self):
         return self._timestamp
 
@@ -25,6 +31,14 @@ class Frame:
     @property
     def filename(self):
         return self._filename
+
+    @staticmethod
+    def create_id(timestamp, frame_num):
+        return "{}_{}".format(timestamp.strftime("%Y%m%d%H%M%S"), frame_num)
+
+    def __repr__(self):
+        return (f'{self.__class__.__name__}('
+                f'{self.camera_id!r}, {self.timestamp!r})')
 
     def to_json(self):
         self.__logger.debug("Getting JSON")
@@ -70,7 +84,7 @@ class Event:
         self._camera_id = camera_id
         self._start_time = start_time
         self._top_score_frame = None
-        self._frames = []
+        self._frames = OrderedDict()
 
     def __str__(self):
         return "%s for camera %s" % (self._event_id, self._camera_id)
@@ -91,6 +105,10 @@ class Event:
     def top_score_frame(self):
         return self._top_score_frame
 
+    @property
+    def frames(self):
+        return self._frames
+
     def append_frame(self, event_frame):
         self.__logger.debug("Got a new event frame: {}".format(event_frame))
         # See if this is the highest scoring frame
@@ -99,7 +117,7 @@ class Event:
             self.__logger.debug("It's a new top score")
             self._top_score_frame = event_frame
         # Keep track of all the frames in this event
-        self._frames.append(event_frame)
+        self._frames[EventFrame.create_id(event_frame.timestamp, event_frame.frame_num)] = event_frame
 
     def to_json(self, extended=False):
         self.__logger.debug("Getting JSON")
@@ -132,8 +150,8 @@ class Camera:
 
         self.__camera_id = camera_id
         self.__state = self.STATE_IDLE
-        self.__recent_snapshots = deque([], 1000)
-        self.__recent_motion = deque([], 10)
+        self.__recent_snapshots = FixedSizeOrderedDict(max=1800)
+        self.__recent_motion = FixedSizeOrderedDict(max=100)
 
     @property
     def id(self):
@@ -144,9 +162,14 @@ class Camera:
         return self.__state
 
     @property
+    def recent_snapshots(self):
+        return self.__recent_snapshots
+
+    @property
     def last_snapshot(self):
         if len(self.__recent_snapshots) > 0:
-            return self.__recent_snapshots[-1]
+            self.__logger.debug("We have recent snapshots, getting the latest one")
+            return list(self.__recent_snapshots.values())[-1]
         return None
 
     @property
@@ -154,7 +177,7 @@ class Camera:
         return self.__recent_motion
 
     def append_snapshot_frame(self, frame):
-        self.__recent_snapshots.append(frame)
+        self.__recent_snapshots[Frame.create_id(frame.timestamp, frame.frame_num)] = frame
 
     def to_json(self):
         self.__logger.debug("Getting JSON for camera: {}".format(self))

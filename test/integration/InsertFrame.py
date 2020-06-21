@@ -1,13 +1,10 @@
 import json
 import logging
-import os
 import socket
 from datetime import datetime
-from pathlib import Path
-
-from PIL import Image, ImageDraw
 
 from motionmonitor import config
+from unit.utils import create_image_file
 
 MOTION_TYPE = "1"
 SNAPSHOT_TYPE = "2"
@@ -37,18 +34,6 @@ def _determine_filename(filepath, camera_id, timestamp=datetime.now(), event_id=
         .replace("%q", frame.zfill(2)) + ".jpg"
 
 
-def _create_image_file(target_filename):
-    img = Image.new('RGB', (320, 240), color=(73, 109, 137))
-    d = ImageDraw.Draw(img)
-    d.text((18, 18), target_filename, fill=(255, 255, 0))
-    print(target_filename)
-    target_dir = os.path.dirname(target_filename)
-
-    Path(target_dir).mkdir(parents=True, exist_ok=True)
-
-    img.save(target_filename)
-
-
 def _send_socket_msg(camera_id, picture_type, timestamp, filename, event_id="0"):
     UDP_IP = config["SOCKET_SERVER"]["ADDRESS"]
     UDP_PORT = int(config["SOCKET_SERVER"]["PORT"])
@@ -69,7 +54,7 @@ def _send_socket_msg(camera_id, picture_type, timestamp, filename, event_id="0")
 def create_snapshot_frame(camera_id="1"):
     timestamp = datetime.now()
     filename = _determine_filename(config["GENERAL"]["SNAPSHOT_FILENAME"], camera_id, timestamp)
-    _create_image_file(filename)
+    create_image_file(filename)
     _send_socket_msg(camera_id, SNAPSHOT_TYPE, timestamp, filename)
 
 
@@ -77,7 +62,7 @@ def create_motion_frame(camera_id="1"):
     timestamp = datetime.now()
     event_id = timestamp.strftime("%Y%m%d-%H%M%S")
     filename = _determine_filename(config["GENERAL"]["MOTION_FILENAME"], camera_id, timestamp, event_id)
-    _create_image_file(filename)
+    create_image_file(filename)
     _send_socket_msg(camera_id, MOTION_TYPE, timestamp, filename, event_id)
 
 
