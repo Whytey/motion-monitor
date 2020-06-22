@@ -20,12 +20,17 @@ class Event(BaseModel):
     # | start_time | datetime    | NO   | MUL | NULL    |       |
     # +------------+-------------+------+-----+---------+-------+
 
+    camera_id = pw.IntegerField()
     event_id = pw.CharField()
-    camera_id = pw.CharField()
     start_time = pw.DateTimeField()
 
     class Meta:
-        table_name = "motion_event"
+        table_name = 'motion_event'
+        indexes = (
+            (('event_id', 'camera_id'), True),
+            (('start_time', 'camera_id'), False),
+        )
+        primary_key = False
 
     @staticmethod
     def from_native(event):
@@ -47,14 +52,18 @@ class Frame(BaseModel):
     # | archive   | tinyint(1)   | YES  |     | NULL    |       |
     # +-----------+--------------+------+-----+---------+-------+
 
-    camera_id = pw.CharField()
+    archive = pw.IntegerField(null=True)
+    camera_id = pw.IntegerField()
+    filename = pw.CharField(null=True, unique=True)
+    frame = pw.IntegerField(null=True)
     timestamp = pw.DateTimeField()
-    frame = pw.IntegerField()
-    filename = pw.CharField()
-    archive = pw.BooleanField()
 
     class Meta:
-        table_name = "snapshot_frame"
+        table_name = 'snapshot_frame'
+        indexes = (
+            (('timestamp', 'camera_id'), False),
+        )
+        primary_key = False
 
 
 class EventFrame(BaseModel):
@@ -70,11 +79,16 @@ class EventFrame(BaseModel):
     # | filename  | varchar(100) | YES  |     | NULL    |       |
     # +-----------+--------------+------+-----+---------+-------+
 
-    event_id = pw.CharField()
-    camera_id = pw.CharField()
+    camera_id = pw.IntegerField()
+    event_id = pw.CharField(index=True)
+    filename = pw.CharField(null=True)
+    frame = pw.IntegerField(null=True)
+    score = pw.IntegerField(null=True)
     timestamp = pw.DateTimeField()
-    frame = pw.IntegerField()
-    filename = pw.CharField()
 
     class Meta:
-        table_name = "motion_frame"
+        table_name = 'motion_frame'
+        indexes = (
+            (('event_id', 'camera_id', 'timestamp', 'frame'), True),
+        )
+        primary_key = False

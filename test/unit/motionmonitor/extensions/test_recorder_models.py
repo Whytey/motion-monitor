@@ -17,7 +17,7 @@ class EventTableTests(unittest.TestCase):
         sqlite_mem = pw.SqliteDatabase(":memory:")
         self.db = db
         self.db.proxy.initialize(sqlite_mem)
-        sqlite_mem.create_tables([db.Event], safe=True)
+        sqlite_mem.create_tables([db.Event], safe=False)
 
     def test_from_native(self):
         now = datetime.now()
@@ -27,16 +27,16 @@ class EventTableTests(unittest.TestCase):
         self.assertEqual(CAMERA_ID, db_event.camera_id)
         self.assertEqual(now, db_event.start_time)
 
-
     def test_to_native(self):
         now = datetime.now()
-        e = self.db.Event.create(event_id=EVENT_ID, camera_id=CAMERA_ID, start_time=now)
-        e.save()
+        e = Event.create(event_id=EVENT_ID, camera_id=CAMERA_ID, start_time=now)
         native_event = e.to_native()
         self.assertEqual(EVENT_ID, native_event.id)
         self.assertEqual(CAMERA_ID, native_event.camera_id)
         self.assertEqual(now, native_event.start_time)
 
+        events = self.db.Event.select()
+        self.assertEqual(1, len(events))
 
 
 if __name__ == '__main__':
