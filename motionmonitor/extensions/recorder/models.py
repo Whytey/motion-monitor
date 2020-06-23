@@ -1,8 +1,13 @@
+import logging
+
 import peewee as pw
 
 import motionmonitor
 
 proxy = pw.DatabaseProxy()
+
+SCHEMA_VERSION = 1
+_LOGGER = logging.getLogger(__name__)
 
 
 class BaseModel(pw.Model):
@@ -34,10 +39,14 @@ class Event(BaseModel):
 
     @staticmethod
     def from_native(event):
-        return Event.create(event_id=event.id, camera_id=event.camera_id, start_time=event.start_time)
+        return Event(event_id=event.id,
+                     camera_id=event.camera_id,
+                     start_time=event.start_time)
 
     def to_native(self) -> motionmonitor.models.Event:
-        return motionmonitor.models.Event(self.event_id, self.camera_id, self.start_time)
+        return motionmonitor.models.Event(self.event_id,
+                                          self.camera_id,
+                                          self.start_time)
 
 
 class Frame(BaseModel):
@@ -52,11 +61,11 @@ class Frame(BaseModel):
     # | archive   | tinyint(1)   | YES  |     | NULL    |       |
     # +-----------+--------------+------+-----+---------+-------+
 
-    archive = pw.IntegerField(null=True)
     camera_id = pw.IntegerField()
-    filename = pw.CharField(null=True, unique=True)
-    frame = pw.IntegerField(null=True)
     timestamp = pw.DateTimeField()
+    frame = pw.IntegerField(null=True)
+    filename = pw.CharField(null=True, unique=True)
+    archive = pw.IntegerField(null=True)
 
     class Meta:
         table_name = 'snapshot_frame'
@@ -64,6 +73,20 @@ class Frame(BaseModel):
             (('timestamp', 'camera_id'), False),
         )
         primary_key = False
+
+    @staticmethod
+    def from_native(frame):
+        return Frame(camera_id=frame.camera_id,
+                     timestamp=frame.timestamp,
+                     frame=frame.frame_num,
+                     filename=frame.filename,
+                     archive=0)
+
+    def to_native(self) -> motionmonitor.models.Frame:
+        return motionmonitor.models.Frame(self.camera_id,
+                                          self.timestamp,
+                                          self.frame,
+                                          self.filename)
 
 
 class EventFrame(BaseModel):
@@ -92,3 +115,20 @@ class EventFrame(BaseModel):
             (('event_id', 'camera_id', 'timestamp', 'frame'), True),
         )
         primary_key = False
+
+    @staticmethod
+    def from_native(frame):
+        return EventFrame(camera_id=frame.camera_id,
+                          event_id=frame.event_id,
+                          timestamp=frame.timestamp,
+                          frame=frame.frame_num,
+                          filename=frame.filename,
+                          score=frame.score)
+
+    def to_native(self) -> motionmonitor.models.Frame:
+        return motionmonitor.models.EventFrame(self.camera_id,
+                                               self.event_id,
+                                               self.timestamp,
+                                               self.frame,
+                                               self.filename,
+                                               self.score)
