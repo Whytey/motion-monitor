@@ -1,11 +1,12 @@
 import json
 import logging
+from datetime import datetime
 
 from aiohttp import web
 from playhouse.db_url import connect
 
 from motionmonitor.const import EVENT_MOTION_EVENT_START, EVENT_NEW_FRAME, EVENT_NEW_MOTION_FRAME
-from motionmonitor.extensions.api import BaseAPIView
+from motionmonitor.extensions.api import BaseAPIView, APIImageView
 from motionmonitor.extensions.recorder import models
 from motionmonitor.extensions.recorder.models import Event, Frame, EventFrame
 
@@ -17,6 +18,14 @@ def get_extension(mm):
 
 
 class Recorder:
+    """An extension to record data to a database.  Backend database URL is provided in the configuration
+    and could be any database supported by the Peewee ORM.  API endpoints are added to the API extension that
+    support the retrieving of the database data.
+
+    This extension is somewhat inspired by the Recorder component of Home-Assistant
+    - https://www.home-assistant.io/integrations/recorder
+    """
+
     def __init__(self, mm):
         self.mm = mm
         self.__db_url = mm.config["RECORDER"]["URL"]
@@ -34,6 +43,7 @@ class Recorder:
 
         # Add the API endpoints that the Recorder provides (/events, /snapshots, /database)
         self.mm.api.register_view(APISnapshotsView)
+        self.mm.api.register_view(APISnapshotFrameView)
 
     def _handle_motion_start(self, event):
         native_event = event.data
@@ -55,6 +65,29 @@ class APIEventsView:
     pass
 
 
+class APISnapshotFrameView(APIImageView):
+    url = "/snapshots/{camera_id}/{timestamp}/{frame}"
+    name = "api:snapshot-frame"
+    description = "Returns the snapshot frame for the specified camera_id, timestamp and frame"
+
+    async def get(self, request):
+        camera_id = request.match_info['camera_id']
+        timestamp = datetime.strptime(request.match_info['timestamp'], "%Y%m%d%H%M%S")
+        frame_num = request.match_info['frame']
+
+        frame = Frame.get(Frame.camera_id == camera_id,
+                          Frame.timestamp == timestamp,
+                          Frame.frame == frame_num)
+
+        frame_params = {
+            "camera_id": frame.camera_id,
+            "timestamp": frame.timestamp.strftime("%Y%m%d%H%M%S"),
+            "frame": frame.frame
+        }
+
+        return self._create_response(request, frame, frame_params, self)
+
+
 class APISnapshotsView(BaseAPIView):
     url = "/snapshots"
     name = "api:snapshot-frames"
@@ -62,9 +95,16 @@ class APISnapshotsView(BaseAPIView):
                   "is applied."
 
     async def get(self, request):
-        response = {"frames": []}
+        response = self.to_entity_repr(request, classes=["snapshots"])
         for frame in Frame.select():
-            response["frames"].append(frame.to_native().to_json())
+            response["entities"].append(APISnapshotFrameView.to_entity_repr(request,
+                                                                          classes=["snapshot"],
+                                                                          rel=["item"],
+                                                                          path_params={
+                                                                              "camera_id": frame.camera_id,
+                                                                              "timestamp": frame.timestamp.strftime("%Y%m%d%H%M%S"),
+                                                                              "frame": frame.frame}))
+
         return web.Response(text=json.dumps(response), content_type='application/json')
 
 

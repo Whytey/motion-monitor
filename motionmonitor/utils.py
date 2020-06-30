@@ -60,3 +60,8 @@ def convert_frames(frame, img_format: str, scale=None) -> bytes:
             im = im.resize([width, height])
         im.save(converted_img, img_format)
         return converted_img.getvalue()
+
+
+def stringify_dict(d: dict) -> dict:
+    """Given a dictionary, converts both the keys and values of it to string and returns it."""
+    return {str(key): str(value) for key, value in d.items()}
