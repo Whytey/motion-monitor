@@ -10,7 +10,7 @@ from aiohttp.web_exceptions import HTTPBadRequest, HTTPNotImplemented
 from motionmonitor.const import KEY_MM
 from motionmonitor.extensions.api.siren import Entity, EmbeddedRepresentationSubEntity
 from motionmonitor.models import Frame, EventFrame
-from motionmonitor.utils import convert_frames, animate_frames, stringify_dict
+from motionmonitor.utils import convert_frames, animate_frames, stringify_dict, lower_camel_casify_dict_keys
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -172,7 +172,7 @@ class APIImageView(BaseAPIView):
             img_bytes = convert_frames(frame, "JPEG", scale)
 
             response = self_view.to_entity_repr(request, ["frame"], path_params=frame_params)
-            response["properties"] = frame_params.copy()
+            response["properties"] = lower_camel_casify_dict_keys(frame_params.copy())
             response["properties"]["jpegBytes"] = base64.b64encode(img_bytes).decode('ascii')
 
             response["links"].append(self_view.to_link_repr(request, rel=["jpeg"], path_params=frame_params,
@@ -363,7 +363,7 @@ class APICameraSnapshotFrameView(APIImageView):
             raise HTTPBadRequest()
 
         frame_params = {
-            "cameraId": camera_id,
+            "camera_id": camera_id,
             "timestamp": timestamp.strftime("%Y%m%d%H%M%S"),
             "frame": frame_num
         }

@@ -21,7 +21,7 @@ from motionmonitor.extensions.api import API, APICameraSnapshotFramesView, APICa
 from motionmonitor.extensions.api.schema import JSONSCHEMA
 from motionmonitor.models import Camera, Frame, EventFrame, Event
 
-CAMERA_ID = "1"
+CAMERA_ID = 1
 EVENT_ID = "202006011200-1"
 
 

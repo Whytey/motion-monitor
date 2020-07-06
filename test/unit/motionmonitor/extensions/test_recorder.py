@@ -1,7 +1,9 @@
 import asyncio
+import base64
 import unittest
 from datetime import datetime
-from unittest.mock import Mock
+from unittest import mock
+from unittest.mock import Mock, ANY
 
 import peewee as pw
 from aiohttp.test_utils import make_mocked_request
@@ -9,11 +11,11 @@ from aiohttp.test_utils import make_mocked_request
 import motionmonitor
 from motionmonitor.const import KEY_MM
 from motionmonitor.core import EventBus
-from motionmonitor.extensions.recorder import Recorder, APISnapshotsView
+from motionmonitor.extensions.recorder import Recorder, APISnapshotsView, APISnapshotFrameView
 from motionmonitor.extensions.recorder import models as db_models
 from test.unit.motionmonitor.extensions.test_api import TestAPIBase
 
-CAMERA_ID = "1"
+CAMERA_ID = 1
 EVENT_ID = "202006011200-1"
 
 
@@ -81,6 +83,50 @@ class RecorderAPISnapshotsViewTests(TestAPIBase):
         response = self.loop.run_until_complete(APISnapshotsView().get(self.request))
         json_data = self.is_valid_json(response)
         self.assertEqual(1, len(json_data["entities"]))
+
+
+class RecorderAPISnapshotFrameViewTests(TestAPIBase):
+    timestamp = "20200601120000"
+    frame_num = 2
+    mocked_bytes = b'12345'
+
+    def setUp(self) -> None:
+        super().setUp()
+
+        # Setup the database
+        sqlite_mem = pw.SqliteDatabase(":memory:")
+        db_models.proxy.initialize(sqlite_mem)
+        sqlite_mem.create_tables([db_models.Frame], safe=False)
+
+        self.request = make_mocked_request("GET", APISnapshotFrameView.url, match_info={"camera_id": CAMERA_ID,
+                                                                                        "timestamp": self.timestamp,
+                                                                                        "frame": self.frame_num})
+        self.request.app[KEY_MM] = self.mm
+
+    def test_get_not_exists(self):
+        with self.assertRaises(pw.DoesNotExist):
+            response = self.loop.run_until_complete(APISnapshotFrameView().get(self.request))
+
+    @mock.patch('motionmonitor.extensions.api.convert_frames')
+    def test_get_one_snapshot(self, mock_convert_frames):
+        mock_convert_frames.return_value = self.mocked_bytes
+
+        now = datetime.strptime(self.timestamp, "%Y%m%d%H%M%S")
+        filename = "filename.jpg"
+        f = db_models.Frame(camera_id=CAMERA_ID, timestamp=now, frame=self.frame_num, filename=filename)
+        f.save()
+
+        response = self.loop.run_until_complete(APISnapshotFrameView().get(self.request))
+        json_data = self.is_valid_json(response)
+
+        # The convert will have been called with defaults; JPEG and None
+        mock_convert_frames.assert_called_with(ANY, "JPEG", None)
+
+        # Confirm the properties of the JSON response
+        self.assertEqual(CAMERA_ID, json_data["properties"]["cameraId"])
+        self.assertEqual(self.timestamp, json_data["properties"]["timestamp"])
+        self.assertEqual(self.frame_num, json_data["properties"]["frame"])
+        self.assertEqual(base64.b64encode(self.mocked_bytes).decode('ascii'), json_data["properties"]["jpegBytes"])
 
 
 if __name__ == '__main__':
