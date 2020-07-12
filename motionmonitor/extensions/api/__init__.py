@@ -128,7 +128,8 @@ class BaseAPIView:
             "links": [
                 {
                     "rel": ["self"],
-                    "href": str(request.app.router[cls.name].url_for(**stringify_dict(path_params)).with_query(query_params))
+                    "href": str(
+                        request.app.router[cls.name].url_for(**stringify_dict(path_params)).with_query(query_params))
                 }
             ],
         }

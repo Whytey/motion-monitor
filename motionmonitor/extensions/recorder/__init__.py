@@ -3,6 +3,8 @@ import logging
 from datetime import datetime
 
 from aiohttp import web
+from aiohttp.web_exceptions import HTTPNotImplemented, HTTPBadRequest
+from peewee import DoesNotExist
 from playhouse.db_url import connect
 
 from motionmonitor.const import EVENT_MOTION_EVENT_START, EVENT_NEW_FRAME, EVENT_NEW_MOTION_FRAME
@@ -65,6 +67,27 @@ class APIEventsView:
     pass
 
 
+class APISnapshotsView(BaseAPIView):
+    url = "/snapshots"
+    name = "api:snapshots"
+    description = "Lists all snapshot frames in the database.  Recommend filtering by cameraId, dates or pagination " \
+                  "is applied."
+
+    async def get(self, request):
+        response = self.to_entity_repr(request, classes=["snapshots"])
+        for frame in Frame.select():
+            response["entities"].append(APISnapshotFrameView.to_entity_repr(request,
+                                                                            classes=["snapshot"],
+                                                                            rel=["item"],
+                                                                            path_params={
+                                                                                "camera_id": frame.camera_id,
+                                                                                "timestamp": frame.timestamp.strftime(
+                                                                                    "%Y%m%d%H%M%S"),
+                                                                                "frame": frame.frame}))
+
+        return web.Response(text=json.dumps(response), content_type='application/json')
+
+
 class APISnapshotFrameView(APIImageView):
     url = "/snapshots/{camera_id}/{timestamp}/{frame}"
     name = "api:snapshot-frame"
@@ -75,9 +98,12 @@ class APISnapshotFrameView(APIImageView):
         timestamp = datetime.strptime(request.match_info['timestamp'], "%Y%m%d%H%M%S")
         frame_num = request.match_info['frame']
 
-        frame = Frame.get(Frame.camera_id == camera_id,
-                          Frame.timestamp == timestamp,
-                          Frame.frame == frame_num)
+        try:
+            frame = Frame.get(Frame.camera_id == camera_id,
+                              Frame.timestamp == timestamp,
+                              Frame.frame == frame_num)
+        except DoesNotExist:
+            raise HTTPBadRequest()
 
         frame_params = {
             "camera_id": frame.camera_id,
@@ -88,24 +114,101 @@ class APISnapshotFrameView(APIImageView):
         return self._create_response(request, frame, frame_params, self)
 
 
-class APISnapshotsView(BaseAPIView):
-    url = "/snapshots"
-    name = "api:snapshot-frames"
-    description = "Lists all snapshot frames in the database.  Recommend filtering by cameraId, dates or pagination " \
+class APIEventsView(BaseAPIView):
+    url = "/events"
+    name = "api:events"
+    description = "Lists all events in the database.  Recommend filtering by cameraId, dates or pagination " \
                   "is applied."
 
     async def get(self, request):
-        response = self.to_entity_repr(request, classes=["snapshots"])
-        for frame in Frame.select():
-            response["entities"].append(APISnapshotFrameView.to_entity_repr(request,
+        response = self.to_entity_repr(request, classes=["events"])
+        for event in Event.select():
+            response["entities"].append(APIEventEntityView.to_entity_repr(request,
                                                                           classes=["snapshot"],
                                                                           rel=["item"],
                                                                           path_params={
-                                                                              "camera_id": frame.camera_id,
-                                                                              "timestamp": frame.timestamp.strftime("%Y%m%d%H%M%S"),
-                                                                              "frame": frame.frame}))
+                                                                              "event_id": event.event_id}))
 
         return web.Response(text=json.dumps(response), content_type='application/json')
+
+
+class APIEventEntityView(BaseAPIView):
+    url = "/events/{event_id}"
+    name = "api:event-entity"
+    description = "Shows an event in the database."
+
+    async def get(self, request):
+        event_id = request.match_info['event_id']
+
+        try:
+            event = Event.get(Event.event_id == event_id)
+        except DoesNotExist:
+            raise HTTPBadRequest()
+
+        response = self.to_entity_repr(request, ["event"], path_params={"event_id": event_id})
+        response["properties"] = {
+            "eventId": event.event_id,
+            "cameraId": event.camera_id,
+            "startTime": event.start_time.strftime("%Y%m%d%H%M%S"),
+        }
+
+        try:
+            tsf = EventFrame.select().where(EventFrame.event_id == event_id).order_by(EventFrame.score.desc()).limit(1).get()
+            response["entities"].append(
+                APIEventFrameView.to_link_repr(request,
+                                               classes=["frame"],
+                                               rel=["http://motion-monitor/rel/top-score-frame"],
+                                               path_params={"camera_id": tsf.camera_id,
+                                                            "event_id": tsf.event_id,
+                                                            "timestamp": tsf.timestamp.strftime("%Y%m%d%H%M%S"),
+                                                            "frame": tsf.frame}))
+
+            frames = EventFrame.select().where(EventFrame.event_id == event_id).order_by(EventFrame.timestamp.asc())
+            for frame in frames:
+                response["entities"].append(APIEventFrameView.to_link_repr(request,
+                                                                           classes=["frame"],
+                                                                           rel=["http://motion-monitor/rel/frames"],
+                                                                           path_params={"camera_id": frame.camera_id,
+                                                                                        "event_id": frame.event_id,
+                                                                                        "timestamp": frame.timestamp.strftime(
+                                                                                            "%Y%m%d%H%M%S"),
+                                                                                        "frame": frame.frame}))
+        except DoesNotExist:
+            pass
+        return web.Response(text=json.dumps(response), content_type='application/json')
+
+    async def delete(self, request):
+        raise HTTPNotImplemented()
+
+
+class APIEventFrameView(APIImageView):
+    url = "/events/{event_id}/frames/{timestamp}/{frame}"
+    name = "api:camera-event-frame"
+    description = "Returns a frame from an event as specified by event_id, timestamp and frame"
+
+    async def get(self, request):
+        event_id = request.match_info['event_id']
+        timestamp = datetime.strptime(request.match_info['timestamp'], "%Y%m%d%H%M%S")
+        frame_num = request.match_info['frame']
+
+        try:
+            frame = EventFrame.select().where(EventFrame.event_id == event_id,
+                                          EventFrame.timestamp == timestamp,
+                                          EventFrame.frame == frame_num).get()
+        except DoesNotExist:
+            raise HTTPBadRequest()
+
+        frame_params = {
+            "camera_id": frame.camera_id,
+            "eventId": frame.event_id,
+            "timestamp": frame.timestamp.strftime("%Y%m%d%H%M%S"),
+            "score": frame.score,
+            "frame": frame.frame
+        }
+        return self._create_response(request, frame, frame_params, self)
+
+    async def delete(self, request):
+        raise HTTPNotImplemented()
 
 
 class APIDatabaseView:
