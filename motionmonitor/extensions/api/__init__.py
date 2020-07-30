@@ -10,7 +10,7 @@ from aiohttp.web_exceptions import HTTPBadRequest, HTTPNotImplemented
 from motionmonitor.const import KEY_MM
 from motionmonitor.extensions.api.siren import Entity, EmbeddedRepresentationSubEntity
 from motionmonitor.models import Frame, EventFrame
-from motionmonitor.utils import convert_frames, animate_frames
+from motionmonitor.utils import convert_frames, animate_frames, stringify_dict, lower_camel_casify_dict_keys
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -118,27 +118,28 @@ class BaseAPIView:
             router.add_route(method, self.url, handler, name=self.name)
 
     @classmethod
-    def to_entity_repr(cls, request, classes=[], path_params={}, query_params={}):
+    def to_entity_repr(cls, request, classes=[], rel=["self"], path_params={}, query_params={}):
         return {
             "class": classes,
+            "rel": rel,
             "properties": {
             },
             "entities": [],
             "links": [
                 {
                     "rel": ["self"],
-                    "href": str(request.app.router[cls.name].url_for(**path_params).with_query(query_params))
+                    "href": str(
+                        request.app.router[cls.name].url_for(**stringify_dict(path_params)).with_query(query_params))
                 }
             ],
         }
 
     @classmethod
     def to_link_repr(cls, request, classes=[], rel=[], path_params={}, query_params={}):
-        _LOGGER.debug(cls.name)
         return {
             "class": classes,
             "rel": rel,
-            "href": str(request.app.router[cls.name].url_for(**path_params).with_query(query_params))
+            "href": str(request.app.router[cls.name].url_for(**stringify_dict(path_params)).with_query(query_params))
         }
 
 
@@ -172,7 +173,7 @@ class APIImageView(BaseAPIView):
             img_bytes = convert_frames(frame, "JPEG", scale)
 
             response = self_view.to_entity_repr(request, ["frame"], path_params=frame_params)
-            response["properties"] = frame_params.copy()
+            response["properties"] = lower_camel_casify_dict_keys(frame_params.copy())
             response["properties"]["jpegBytes"] = base64.b64encode(img_bytes).decode('ascii')
 
             response["links"].append(self_view.to_link_repr(request, rel=["jpeg"], path_params=frame_params,
@@ -281,7 +282,7 @@ class APICameraEntityView(BaseAPIView):
             _LOGGER.error("Invalid cameraId: {}".format(camera_id))
             raise HTTPBadRequest()
 
-        response = self.to_entity_repr(request, ["cameras"], {"camera_id": camera_id})
+        response = self.to_entity_repr(request, classes=["cameras"], path_params={"camera_id": camera_id})
         response["properties"] = {
             "cameraId": camera.id,
             "state": camera.state
@@ -363,7 +364,7 @@ class APICameraSnapshotFrameView(APIImageView):
             raise HTTPBadRequest()
 
         frame_params = {
-            "cameraId": camera_id,
+            "camera_id": camera_id,
             "timestamp": timestamp.strftime("%Y%m%d%H%M%S"),
             "frame": frame_num
         }

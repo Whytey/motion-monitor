@@ -26,3 +26,6 @@ NAME=motion
 [API]
 ADDRESS=127.0.0.1
 PORT=8001
+
+[RECORDER]
+#URL=sqlite:///:memory:

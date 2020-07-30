@@ -60,3 +60,20 @@ def convert_frames(frame, img_format: str, scale=None) -> bytes:
             im = im.resize([width, height])
         im.save(converted_img, img_format)
         return converted_img.getvalue()
+
+
+def stringify_dict(d: dict) -> dict:
+    """Given a dictionary, converts both the keys and values of it to string and returns it."""
+    return {str(key): str(value) for key, value in d.items()}
+
+
+def lower_camel_casify_dict_keys(d: dict) -> dict:
+    """Given a dictionary, changes the key from snake case to lower camel case."""
+    return {to_camel_case(key): value for key, value in d.items()}
+
+
+def to_camel_case(snake_str: str) -> str:
+    components = snake_str.split('_')
+    # We capitalize the first letter of each component except the first one
+    # with the 'title' method and join them together.
+    return components[0] + ''.join(x.title() for x in components[1:])
