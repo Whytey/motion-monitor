@@ -42,11 +42,10 @@ class Frame:
 
     def to_json(self):
         self.__logger.debug("Getting JSON")
-        json_str = {"cameraId": self._camera_id,
+        return {"cameraId": self._camera_id,
                     "timestamp": self._timestamp.strftime("%Y%m%d%H%M%S"),
                     "frame": self._frame_num,
                     "filename": self._filename}
-        return json_str
 
 
 class EventFrame(Frame):
@@ -67,13 +66,12 @@ class EventFrame(Frame):
 
     def to_json(self):
         self.__logger.debug("Getting JSON")
-        json_str = {"eventId": self._event_id,
+        return {"eventId": self._event_id,
                     "cameraId": self._camera_id,
                     "timestamp": self._timestamp.strftime("%Y%m%d%H%M%S"),
                     "score": self._score,
                     "frame": self._frame_num,
                     "filename": self._filename}
-        return json_str
 
 
 class Event:
@@ -112,8 +110,10 @@ class Event:
     def append_frame(self, event_frame):
         self.__logger.debug("Got a new event frame: {}".format(event_frame))
         # See if this is the highest scoring frame
-        if not self._top_score_frame or (self._top_score_frame and
-                                         event_frame.score > self._top_score_frame.score):
+        if (
+            not self._top_score_frame
+            or event_frame.score > self._top_score_frame.score
+        ):
             self.__logger.debug("It's a new top score")
             self._top_score_frame = event_frame
         # Keep track of all the frames in this event
@@ -132,10 +132,7 @@ class Event:
                     "topScoreFrame": top_score_frame_json}
 
         if extended:
-            frames_json = []
-            for frame in self._frames:
-                frames_json.append(frame.to_json())
-
+            frames_json = [frame.to_json() for frame in self._frames]
             json_str["frames"] = frames_json
         return json_str
 
@@ -182,10 +179,7 @@ class Camera:
     def to_json(self):
         self.__logger.debug("Getting JSON for camera: {}".format(self))
 
-        recent_motion_json = []
-        for event in self.__recent_motion:
-            recent_motion_json.append(event.to_json())
-
+        recent_motion_json = [event.to_json() for event in self.__recent_motion]
         last_snapshot_json = None
         if self.last_snapshot:
             last_snapshot_json = self.last_snapshot.to_json()
