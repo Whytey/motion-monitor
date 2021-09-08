@@ -15,9 +15,8 @@ class FixedSizeOrderedDict(OrderedDict):
 
     def __setitem__(self, key, value):
         OrderedDict.__setitem__(self, key, value)
-        if self._max > 0:
-            if len(self) > self._max:
-                self.popitem(False)
+        if self._max > 0 and len(self) > self._max:
+            self.popitem(False)
 
 
 def animate_frames(frames: [], scale=None) -> bytes:

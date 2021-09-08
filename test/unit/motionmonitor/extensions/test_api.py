@@ -51,8 +51,13 @@ class TestAPIBase(unittest.TestCase):
                    frame_num=None):
         added_frames = []
         for i in range(count):
-            f = Frame(camera_id, datetime.strptime(timestamp, "%Y%m%d%H%M%S"), frame_num if frame_num else i,
-                      "{}.jpeg".format(i))
+            f = Frame(
+                camera_id,
+                datetime.strptime(timestamp, "%Y%m%d%H%M%S"),
+                frame_num or i,
+                "{}.jpeg".format(i),
+            )
+
             self.mm.cameras[camera_id].append_snapshot_frame(f)
             added_frames.append(f)
         return added_frames
@@ -68,9 +73,15 @@ class TestAPIBase(unittest.TestCase):
                           frame_num=None, score=0):
         added_frames = []
         for i in range(count):
-            f = EventFrame(camera_id, event_id, datetime.strptime(timestamp, "%Y%m%d%H%M%S"),
-                           frame_num if frame_num else i,
-                           "{}.jpeg".format(i), score)
+            f = EventFrame(
+                camera_id,
+                event_id,
+                datetime.strptime(timestamp, "%Y%m%d%H%M%S"),
+                frame_num or i,
+                "{}.jpeg".format(i),
+                score,
+            )
+
             self.mm.cameras[camera_id].recent_motion[event_id].append_frame(f)
             added_frames.append(f)
         return added_frames

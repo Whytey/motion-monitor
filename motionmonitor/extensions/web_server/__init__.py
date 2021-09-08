@@ -263,50 +263,37 @@ class JSONInterface:
             self.__validate_json_msg(msg)
 
             if msg["method"] == "camera.get":
-                results_json = []
-                for result in self.mm.cameras.values():
-                    results_json.append(result.to_json())
+                results_json = [result.to_json() for result in self.mm.cameras.values()]
                 response["result"] = results_json
                 response["count"] = len(results_json)
 
             if msg["method"] == "image.get":
                 results = Image.get(self.mm, msg["params"])
-                results_json = []
-                for result in results:
-                    results_json.append(result.toJSON())
+                results_json = [result.toJSON() for result in results]
                 response["result"] = results_json
                 response["count"] = len(results_json)
 
             if msg["method"] == "event.get":
                 results = JSONInterface.event_get(extensions.mysql_db_server.__init__.SQLReader(self.mm), msg["params"])
-                results_json = []
-                for result in results:
-                    results_json.append(result.to_json(True))
+                results_json = [result.to_json(True) for result in results]
                 response["result"] = results_json
                 response["count"] = len(results_json)
 
             if msg["method"] == "event.list":
                 results = JSONInterface.event_list(extensions.mysql_db_server.__init__.SQLReader(self.mm), msg["params"])
-                results_json = []
-                for result in results:
-                    results_json.append(result.to_json())
+                results_json = [result.to_json() for result in results]
                 response["result"] = results_json
                 response["count"] = len(results_json)
 
             if msg["method"] == "snapshot.get":
                 results = JSONInterface.snapshot_get(extensions.mysql_db_server.__init__.SQLReader(self.mm), msg["params"])
-                results_json = []
-                for result in results:
-                    results_json.append(result.to_json())
+                results_json = [result.to_json() for result in results]
                 response["result"] = results_json
                 response["count"] = len(results_json)
 
         except Exception as e:
             self.__logger.exception(e)
-            error = {}
-            error["code"] = 1
-            error["message"] = "JSON Exception"
-            error["data"] = str(e)
+            error = {'code': 1, 'message': 'JSON Exception', 'data': str(e)}
             response["error"] = error
 
         self.__logger.debug(response)
@@ -349,13 +336,11 @@ class JSONInterface:
                                                            dayCount,
                                                            weekCount,
                                                            monthCount)
-        frames = []
-
-        for (cameraId, timestamp, frame, filename) in dbFrames:
-            frames.append(Frame(cameraId, timestamp, frame, filename))
-
         # Return the frames as a list
-        return frames
+        return [
+            Frame(cameraId, timestamp, frame, filename)
+            for (cameraId, timestamp, frame, filename) in dbFrames
+        ]
 
 
     @staticmethod
@@ -387,22 +372,13 @@ class JSONInterface:
 
     @staticmethod
     def event_list(sqlreader, params):
-        fromTimestamp = None
-        if "fromTimestamp" in params:
-            fromTimestamp = params["fromTimestamp"]
-        toTimestamp = None
-        if "toTimestamp" in params:
-            toTimestamp = params["toTimestamp"]
-        cameraIds = None
-        if "cameraIds" in params:
-            cameraIds = params["cameraIds"]
-
+        fromTimestamp = params["fromTimestamp"] if "fromTimestamp" in params else None
+        toTimestamp = params["toTimestamp"] if "toTimestamp" in params else None
+        cameraIds = params["cameraIds"] if "cameraIds" in params else None
         dbEvents = sqlreader.get_motion_events(fromTimestamp, toTimestamp, cameraIds)
-        events = []
-
-        for (event_id, camera_id, start_time) in dbEvents:
-            events.append(Event(event_id, camera_id, start_time))
-
         # Return the events as a list
-        return events
+        return [
+            Event(event_id, camera_id, start_time)
+            for (event_id, camera_id, start_time) in dbEvents
+        ]
 

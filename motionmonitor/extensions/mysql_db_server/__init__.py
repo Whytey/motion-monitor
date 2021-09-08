@@ -221,7 +221,7 @@ class SQLReader:
         if cameraIds:
             wheres.append("camera_id IN (%s)" % ','.join(cameraIds))
 
-        if len(wheres) > 0:
+        if wheres:
             query = query + "\nWHERE " + "\nAND ".join(wheres)
 
         return self.__connection.run_query(query)
@@ -276,7 +276,6 @@ class SQLWriter:
                            %s,
                            %s)"""
         return
-        self.__connection.run_query(query, frames)
 
     def insert_motion_frames(self, frames):
         self.__logger.debug("Inserting motion frame to the DB: %s" % frames)
@@ -291,8 +290,6 @@ class SQLWriter:
                            %s)"""
         return
 
-        self.__connection.run_query(query, frames)
-
     def insert_motion_events(self, events):
         self.__logger.debug("Inserting motion event to the DB: %s" % events)
         # Insert the data to the DB.  Ignore any duplicates (as determined by the filename)
@@ -302,8 +299,6 @@ class SQLWriter:
                            %s,
                            %s)"""
         return
-
-        self.__connection.run_query(query, events)
 
     def handle_motion_event(self, event):
         msg = event.data

@@ -58,7 +58,9 @@ class MotionMonitor(object):
             location = os.path.join(extension_folder, extension)
             self.__logger.debug("Extension location should be: {}".format(location))
 
-            if not os.path.isdir(location) or not main_module + ".py" in os.listdir(location):
+            if not os.path.isdir(
+                location
+            ) or main_module + ".py" not in os.listdir(location):
                 self.__logger.warning("Extension '{}' isn't a directory or the directory doesn't contain an '{}'.py.".format(location, main_module))
                 continue
 

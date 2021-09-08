@@ -63,9 +63,8 @@ class AbstractFrameHandler(BaseHandler):
     def __next__(self):
         if self.__providedData:
             raise StopIteration
-        else:
-            self.__providedData = True
-            return self._bytes
+        self.__providedData = True
+        return self._bytes
 
     async def createBytes(self):
         self._bytes = await self._generateBytes()
@@ -207,11 +206,7 @@ class AbstractVideoHandler(BaseHandler):
                         'Content-Type': 'image/jpeg'
                         }
 
-        frameResponse = []
-        # Provide the boundary
-        frameResponse.append(self._boundary)
-        frameResponse.append("\r\n")
-
+        frameResponse = [self._boundary, '\r\n']
         # Provide the image header
         for k, v in imageHeaders.items():
             frameResponse.append("%s: %s" % (k, v))
@@ -263,15 +258,15 @@ class MotionVideoHandler(AbstractVideoHandler):
         self._frames = response_json["result"][0]["frames"]
 
     def _generateFrameBytes(self):
-        if len(self._frames) > 0:
-            frame = self._frames.pop(0)
-            request = {"eventId": frame["eventId"],
-                       "cameraId": str(frame["cameraId"]),
-                       "timestamp": frame["timestamp"],
-                       "frame": str(frame["frame"])}
-            return MotionFrameHandler(request)._generateBytes()
-        else:
+        if len(self._frames) <= 0:
             return None
+
+        frame = self._frames.pop(0)
+        request = {"eventId": frame["eventId"],
+                   "cameraId": str(frame["cameraId"]),
+                   "timestamp": frame["timestamp"],
+                   "frame": str(frame["frame"])}
+        return MotionFrameHandler(request)._generateBytes()
 
 
 class TimelapseVideoHandler(AbstractVideoHandler):
@@ -303,11 +298,11 @@ class TimelapseVideoHandler(AbstractVideoHandler):
         self._frames = response_json["result"]
 
     def _generateFrameBytes(self):
-        if len(self._frames) > 0:
-            frame = self._frames.pop(0)
-            request = {"cameraId": str(frame["cameraId"]),
-                       "timestamp": frame["timestamp"],
-                       "frame": str(frame["frame"])}
-            return SnapshotFrameHandler(request)._generateBytes()
-        else:
+        if len(self._frames) <= 0:
             return None
+
+        frame = self._frames.pop(0)
+        request = {"cameraId": str(frame["cameraId"]),
+                   "timestamp": frame["timestamp"],
+                   "frame": str(frame["frame"])}
+        return SnapshotFrameHandler(request)._generateBytes()

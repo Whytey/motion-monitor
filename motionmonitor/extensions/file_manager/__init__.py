@@ -72,8 +72,7 @@ class AuditorThread(threading.Thread):
 
     def __get_camera_from_filepath(self, filepath):
         camera_folder = self.__split_all(filepath)[4]
-        camera = camera_folder.replace("camera", "")
-        return camera
+        return camera_folder.replace("camera", "")
 
     def __get_timestamp_from_snapshot_filepath(self, filepath):
         year = self.__split_all(filepath)[5]
@@ -100,8 +99,7 @@ class AuditorThread(threading.Thread):
     def __get_frame_from_motion_filepath(self, filepath):
         filename = self.__split_all(filepath)[7]
         filename = filename.replace(".jpg", "")
-        frame = filename.split("-")[2]
-        return frame
+        return filename.split("-")[2]
 
     def __audit_snapshot_frames(self):
         try:
@@ -222,7 +220,7 @@ class Auditor():
 
     def audit(self, event):
         msg = event.data
-        if not msg["type"] in ["audit"]: return
+        if msg["type"] not in ["audit"]: return
 
         if not self.__thread or not self.__thread.isAlive():
             # Create a thread and start it
@@ -252,9 +250,7 @@ class SweeperThread(threading.Thread):
     def __sweep_snapshot_frames(self):
 
         try:
-            stale_files = []
-            stale_files.extend(self.__sqlreader.get_stale_snapshot_frames())
-
+            stale_files = list(self.__sqlreader.get_stale_snapshot_frames())
             self.__logger.info("Have %s snapshot files to delete" % len(stale_files))
 
             # Get the filepath from the returned rowset tuple
@@ -286,9 +282,7 @@ class SweeperThread(threading.Thread):
 
     def __sweep_motion_frames(self):
         try:
-            stale_files = []
-            stale_files.extend(self.__sqlreader.get_stale_motion_frames())
-
+            stale_files = list(self.__sqlreader.get_stale_motion_frames())
             self.__logger.info("Have %s motion files to delete" % len(stale_files))
 
             # Get the filepath from the returned rowset tuple
@@ -348,7 +342,7 @@ class Sweeper():
 
     def sweep(self, event):
         msg = event.data
-        if not msg["type"] in ["sweep"]: return
+        if msg["type"] not in ["sweep"]: return
 
         if not self.__thread or not self.__thread.isAlive():
             # Create a thread and start it
